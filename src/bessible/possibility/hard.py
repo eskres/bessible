@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from bessible.location.models import Designation, Substation
 
 HA_PER_ACRE = 0.40468564
+UNKNOWN_CONFIDENCE = 0.2  # an "unknown" check is a gap in the evidence, not a finding
 
 PROTECTED_ECOLOGY = ("sssi", "sac", "spa", "ramsar", "national_nature_reserve", "ancient_woodland")
 PROTECTED_HERITAGE = (
@@ -234,7 +235,23 @@ def _check(
     name: str, proposal: Proposal, sources: tuple[str, ...], outcome: Outcome, reason: str, **facts: Fact
 ) -> Check:
     rounded = {k: round(v, 2) if isinstance(v, float) else v for k, v in facts.items()}
-    return Check(name=name, outcome=outcome, reason=reason, facts=rounded, source_urls=_source_urls(proposal, sources))
+    urls = _source_urls(proposal, sources)
+    if outcome != "unknown":
+        return Check(name=name, outcome=outcome, reason=reason, facts=rounded, source_urls=urls)
+    # No data: say which source let us down, and point at the request we attempted.
+    missed = [s for s in proposal.location.sources if s.status != "ok" and s.name.startswith(sources)]
+    if missed:
+        why = [f"{s.name} {s.status}" + (f" ({s.detail[:120]})" if s.detail else "") for s in missed]
+        reason += f" {'; '.join(why)}."
+    attempted = [s.url for s in missed if s.url.startswith("http")]
+    return Check(
+        name=name,
+        outcome=outcome,
+        reason=reason,
+        facts=rounded,
+        source_urls=urls + [u for u in attempted if u not in urls],
+        confidence=UNKNOWN_CONFIDENCE,
+    )
 
 
 def _source_urls(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:

@@ -38,5 +38,8 @@ def site_land_output(proposal: Proposal, report: PossibilityReport, run_id: str)
     return SiteLandOutput(
         land_use=f"Agricultural land classification: {grades}",
         constraints=report.blockers + report.caveats,
+        blockers=report.blockers,
+        caveats=report.caveats,
+        not_assessed=[f"{c.name}: {c.reason}" for c in report.checks if c.outcome == "unknown"],
         artifacts=artifacts,
     )

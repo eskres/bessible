@@ -9,7 +9,7 @@ from pathlib import Path
 
 from bessible.footprint import reserved_acres, reserved_acres_by_duration
 from bessible.guard import check_narration
-from bessible.models import Artifact, Finding, ReportOutput, SynthesisInput, Verdict
+from bessible.models import Artifact, Finding, ReportOutput, SiteLandOutput, SynthesisInput, Verdict
 from bessible.suitability.verdict import decide
 
 REFERENCE_DURATION_HOURS = 4
@@ -50,6 +50,19 @@ def flatten_state(inp: SynthesisInput) -> dict[str, float]:
     return state
 
 
+def _land_finding(land: SiteLandOutput) -> str:
+    """The land stage in one sentence: its worst outcome first, and what could not be checked."""
+    if land.blockers:
+        text = f"Land classification: {land.land_use}; blocker: {land.blockers[0]}"
+    elif land.caveats:
+        text = f"Land classification: {land.land_use}; caveat: {land.caveats[0]}"
+    else:
+        text = f"Land classification: {land.land_use}; no blocking land constraint found."
+    if land.not_assessed:
+        text += " Not assessed: " + ", ".join(n.split(":", 1)[0] for n in land.not_assessed) + "."
+    return text
+
+
 def _build_findings(inp: SynthesisInput, art_ids_by_stage: dict[str, list[str]]) -> list[Finding]:
     findings: list[Finding] = []
     if "capacity" in art_ids_by_stage:
@@ -74,12 +87,7 @@ def _build_findings(inp: SynthesisInput, art_ids_by_stage: dict[str, list[str]])
             )
         )
     if "site_land" in art_ids_by_stage:
-        findings.append(
-            Finding(
-                text=f"Land classification: {inp.site_land.land_use}; constraints manageable with standard mitigation.",
-                artifact_ids=art_ids_by_stage["site_land"],
-            )
-        )
+        findings.append(Finding(text=_land_finding(inp.site_land), artifact_ids=art_ids_by_stage["site_land"]))
     if "financial" in art_ids_by_stage:
         best = max((c for c in inp.financial.cases if c.irr is not None), key=lambda c: c.irr, default=None)
         c4 = next((c for c in inp.financial.cases if c.duration_h == REFERENCE_DURATION_HOURS), None)

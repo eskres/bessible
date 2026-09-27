@@ -277,3 +277,23 @@ async def test_end_to_end_suitability_stages():
     report_text = report_path.read_text(encoding="utf-8")
     assert "Bessible BESS Suitability Assessment" in report_text
     assert "Storage Duration Comparison" in report_text
+
+
+def test_decide_land_blockers_and_caveats():
+    """Land blockers reject and land caveats caution, whatever words the check reasons use."""
+    fin = FinancialOutput(
+        cases=[
+            DurationCase(duration_h=2, capex_gbp=3.9e6, npv_gbp=2.1e6, irr=0.195),
+            DurationCase(duration_h=4, capex_gbp=6.7e6, npv_gbp=1.9e6, irr=0.140),
+            DurationCase(duration_h=8, capex_gbp=12.3e6, npv_gbp=0.1e6, irr=0.082),
+        ],
+        recommended_h=4,
+    )
+    sent = SentimentOutput(opposition_index=0.20)
+    blocked = SiteLandOutput(land_use="x", blockers=["32 MWh needs 0.65-0.97 ha; the title has 0.02."])
+    verdict, rules = decide(fin, sent, blocked)
+    assert verdict == "no_go"
+    assert "0.02" in rules[0]
+    caveated = SiteLandOutput(land_use="x", caveats=["Median slope 6.8% (limit 10%), relief 1.65 m."])
+    assert decide(fin, sent, caveated)[0] == "maybe"
+    assert decide(fin, sent, SiteLandOutput(land_use="x", not_assessed=["outside_green_belt: ..."]))[0] == "go"

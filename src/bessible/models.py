@@ -274,6 +274,9 @@ class SiteLandOutput(BaseModel):
 
     land_use: str
     constraints: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list, description="Hard-check failures: cannot be built here.")
+    caveats: list[str] = Field(default_factory=list, description="Hard-check warnings: possible with a caveat.")
+    not_assessed: list[str] = Field(default_factory=list, description="Checks with no data, and why.")
     artifacts: list[Artifact] = Field(default_factory=list)
 
 
