@@ -1,0 +1,28 @@
+{
+ "fetched_on": "2026-09-27",
+ "recorded": true,
+ "request": {
+  "urls": [
+   "https://www.bbc.com/news/articles/cvgrvvnep3zo"
+  ],
+  "extract_depth": "basic",
+  "format": "text",
+  "include_usage": true
+ },
+ "response": {
+  "results": [
+   {
+    "url": "https://www.bbc.com/news/articles/cvgrvvnep3zo",
+    "title": "Spelthorne council pulls plug on battery storage unit plan",
+    "raw_content": "Council pulls plug on battery storage unit plan\n\nGetty Images A 3d rendering group of energy storage systems or battery container units, a set of white blocks in a green field.\nA bid to build a battery storage farm in Surrey has been thrown out after councillors decided it did not justify building on green belt land.\nSunbury BESS Ltd wanted to install 50 industrial-scale battery units – each the size of a shipping container – on 3.5 hectares (8.6 acres) of land in Shepperton, between the M3 and a railway line.\nOfficers previously said its climate benefits outweighed the harm to the green belt, but Spelthorne Borough Council's planning committee threw out the application, arguing there were not \"very special circumstances\" to justify bulldozing into green belt land.\nThe company has been approached for comment.\nThe scheme, designed to store energy for the National Grid and release it when demand peaks, was pitched as helping the UK hit its climate targets.\nThe firm halved the size of its original plans following strong objections.\nBut residents wrote more than 40 letters objecting to the proposal, raising concerns about fire risk, noise, health hazards and what they described as \"the industrialisation\" of Shepperton's countryside, according to the Local Democracy Reporting Service.\nPlanning officers said the battery farm counted as \"inappropriate development\" in the green belt, causing a \"significant loss of openness\" and clashing with rules designed to stop urban sprawl.\nOfficials added that there was no evidence to refuse the battery farm on safety grounds, with no objections from Surrey Fire & Rescue Service and the Health and Safety Executive.\nFollow BBC Surrey on Facebook, on X. Send your story ideas to southeasttoday@bbc.co.uk  or WhatsApp us on 08081 002250.\nPlan for battery site on farmland given approval\nPlan to build UK's largest battery storage facility\nPlan for battery site on farmland to be decided\nBattery storage approved despite location concerns\nSpelthorne Borough Council\nLocal Democracy Reporting Service\nUp to 500 new homes proposed on golf course\nCrews extinguish Surrey wildfire\nCrews tackle 1.5-hectare wildfire in Surrey\n\nField with rows of solar panels and the sun rising over a hedge on the end of the field.\nSolar farm construction to begin in November\nThe 43,000 panel solar farm will power 9,400 homes and the council expects it to bring in more than £1m.\n\nA general view picture of large solar panels.\nSolar farm approved for development\nWest Berkshire Council expects the solar farm to generate enough power for about 6,000 homes.\n\nA group of people and dogs are standing surrounded by fields. They are holding a large banner opposing a solar farm\nThousands respond to huge solar farm consultation\nMPs and councillors among those objecting to solar farm spanning Rotherham and Doncaster.\n\nTwo men in dark suits stand in front of a sign which says Great British Energy\nGB Energy boss defends Aberdeen job creation record\nDan McGrail says the state-owned renewables investment firm is directly recruiting two people a week, and its funding is benefitting thousands more.\n\nAerial view of the River Thames and the Houses of Parliament \nThames tunnel plan to heat 650,000 homes gets £41m\nA new pipeline along the Thames will use heat from industry and redistribute it to homes across London.\nThe BBC is in multiple languages\nRead the BBC In your own language\nCopyright 2026 BBC. All rights reserved. The BBC is not responsible for the content of external sites. Read about our approach to external linking.",
+    "images": []
+   }
+  ],
+  "failed_results": [],
+  "response_time": 0.76,
+  "usage": {
+   "credits": 0
+  },
+  "request_id": "05f9414f-2713-45d0-a29b-5b5694ad392a"
+ }
+}
