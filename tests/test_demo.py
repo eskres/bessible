@@ -187,6 +187,8 @@ def test_demo_replay_full_lifecycle(client: TestClient):
     assert result_resp.status_code == 200
     res = result_resp.json()
     assert res["status"] == "completed"
+    assert res["run_id"] == run_id
+    assert res["postcode"] == "RH4 1AD"
     recorded = json.loads(Path("data/demo/dorking/result.json").read_text(encoding="utf-8"))
     assert res["report"]["verdict"] == recorded["report"]["verdict"]
     assert len(res["report"]["findings"]) > 0

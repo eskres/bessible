@@ -466,6 +466,8 @@ class AssessmentResult(BaseModel):
 
     status: Literal["completed", "rejected", "out_of_area", "not_viable"]
     message: str | None = None
+    run_id: str | None = None  # the workflow id; None in recordings made before it was added
+    postcode: str | None = None  # the resolved location's postcode, for the report heading
     report: ReportOutput | None = None
     financial: FinancialOutput | None = None
     site: ConfirmedSite | None = None  # the site the user confirmed; the report's MW and MWh come from it

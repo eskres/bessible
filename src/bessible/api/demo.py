@@ -331,9 +331,9 @@ async def start_demo_run(req: StartDemoRequest | None = None) -> dict[str, str]:
         else SiteDecision(confirmed=True)
     )
 
-    result = AssessmentResult.model_validate_json(result_file.read_text(encoding="utf-8"))
-
     run_id = f"demo-{uuid.uuid4().hex[:12]}"
+    result = AssessmentResult.model_validate_json(result_file.read_text(encoding="utf-8"))
+    result = result.model_copy(update={"run_id": run_id, "postcode": result.postcode or req_data.postcode})
     session = DemoReplaySession(
         run_id=run_id,
         slug=slug,

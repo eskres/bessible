@@ -116,7 +116,7 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
     run.begin(DEFAULT_CENTER);
     run.simulate('run_demo_report');
     run.setCapacityLoading(false);
-    run.setResult(simulateResult('run_demo_report', DEFAULT_CENTER, 12, sim.outcome.capacity));
+    run.setResult(simulateResult('run_demo_report', DEFAULT_CENTER, 12, sim.outcome.capacity, 'SE1 7PB'));
     run.setRunStatus({ run_id: 'run_demo_report', status: 'completed' });
   };
 
@@ -129,7 +129,7 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
     run.setRunStatus({ run_id: runId, status: 'running' });
     run.addEvents(COMPLETION_EVENTS(selectedCapacityMw, currentPosition));
     schedule(() => {
-      run.setResult(simulateResult(runId, currentPosition, selectedCapacityMw, capacityProposal));
+      run.setResult(simulateResult(runId, currentPosition, selectedCapacityMw, capacityProposal, postcode.trim() || undefined));
       run.setRunStatus({ run_id: runId, status: 'completed' });
       run.setSubmittingDecision(false);
     }, 1000);

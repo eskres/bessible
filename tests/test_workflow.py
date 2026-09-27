@@ -64,6 +64,8 @@ async def test_workflow_end_to_end_suitability(fake_gemini: FakeGemini, run_cred
         # Await workflow completion
         result = await handle.result()
         assert result.status == "completed"
+        assert result.run_id == handle.id
+        assert result.postcode == "RH4 1AD"
         assert result.report is not None
         assert result.report.verdict in ("go", "maybe", "no_go")
         assert len(result.report.findings) >= 2
