@@ -48,11 +48,9 @@ def decide(
     opp_index = sent.opposition_index if sent is not None else None
 
     # Check for land constraint blockers
-    if land and land.constraints:
-        blockers = [c for c in land.constraints if "blocker" in c.lower()]
-        if blockers:
-            rule_lines.append(f"REJECT: Site land constraint: {blockers[0]}.")
-            return "no_go", rule_lines
+    if land and land.blockers:
+        rule_lines.append(f"REJECT: Site land constraint: {land.blockers[0].rstrip('.')}.")
+        return "no_go", rule_lines
 
     # Check for NO_GO conditions
     if irr is None or irr < (hurdle / 2.0):
@@ -70,11 +68,14 @@ def decide(
 
     # Check for MAYBE conditions
     is_maybe = False
-    if land and land.constraints:
-        caveats = [c for c in land.constraints if "caveat" in c.lower()]
-        if caveats:
-            rule_lines.append(f"CAUTION: Site land caveat: {caveats[0]}.")
-            is_maybe = True
+    if land and (unchecked := [g for g in land.gaps if g.could_block]):
+        names = ", ".join(g.what for g in unchecked)
+        rule_lines.append(f"CAUTION: Site land not fully assessed ({names}): a blocker cannot be ruled out.")
+        is_maybe = True
+
+    if land and land.caveats:
+        rule_lines.append(f"CAUTION: Site land caveat: {land.caveats[0].rstrip('.')}.")
+        is_maybe = True
 
     if irr < hurdle:
         rule_lines.append(f"CAUTION: Commercial IRR ({irr * 100:.1f}%) is below the hurdle rate ({hurdle * 100:.1f}%).")

@@ -8,13 +8,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from temporalio import activity
 from temporalio.client import WorkflowUpdateFailedError
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
+from bessible import stages
 from bessible.activities import ALL_ACTIVITIES
-from bessible.models import AssessmentRequest, SiteDecision
+from bessible.models import (
+    AssessmentRequest,
+    AssessmentResult,
+    DataGap,
+    MarketOutput,
+    NodeInput,
+    SiteDecision,
+    SiteLandOutput,
+)
 from bessible.workflow import TASK_QUEUE, AssessmentWorkflow
 
 if TYPE_CHECKING:
@@ -155,3 +165,70 @@ async def test_workflow_early_rejection_stops_before_title(
         assert result.status == "rejected"
         st = await handle.query(AssessmentWorkflow.status)
         assert st.boundary is None  # the title stage never ran
+
+
+@pytest.mark.anyio
+async def test_retry_reruns_only_the_failed_stage(fake_gemini: FakeGemini, run_credentials: EncryptedCredentials):
+    """A completed run stays open; a retry re-runs the stage with a retryable gap, then financial onwards."""
+    calls = {"site_land": 0, "market": 0}
+
+    @activity.defn(name="site_land")
+    async def flaky_site_land(_inp: NodeInput) -> SiteLandOutput:
+        calls["site_land"] += 1
+        if calls["site_land"] == 1:
+            gap = DataGap(
+                stage="site_land",
+                what="outside_flood_zone_3",
+                reason="EA: flood zones failed.",
+                sources=["EA: flood zones"],
+                retryable=True,
+                could_block=True,
+            )
+            return SiteLandOutput(land_use="Agricultural", gaps=[gap])
+        return SiteLandOutput(land_use="Agricultural")
+
+    @activity.defn(name="market_revenue")
+    async def counted_market(inp: NodeInput) -> MarketOutput:
+        calls["market"] += 1
+        return await stages.market.market_revenue(inp)
+
+    swapped = {"site_land": flaky_site_land, "market_revenue": counted_market}
+    acts = [swapped.get(a.__name__, a) for a in ALL_ACTIVITIES]
+    async with (
+        await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter) as env,
+        Worker(env.client, task_queue=TASK_QUEUE, workflows=[AssessmentWorkflow], activities=acts),
+    ):
+        req = AssessmentRequest(postcode="RH4 1AD", credentials=run_credentials, retry_window_s=20)
+        handle = await env.client.start_workflow(
+            AssessmentWorkflow.run, req, id=f"test-wf-{uuid.uuid4().hex[:8]}", task_queue=TASK_QUEUE
+        )
+
+        async def until(status: str, retries_left: int | None = None) -> AssessmentResult | None:
+            for _ in range(200):
+                await asyncio.sleep(0.1)
+                st = await handle.query(AssessmentWorkflow.status)
+                res = await handle.query(AssessmentWorkflow.result)
+                if st.status == status and (retries_left is None or (res and res.retries_left == retries_left)):
+                    return res
+            pytest.fail(f"run never reached {status}")
+
+        await until("awaiting_confirmation")
+        await handle.execute_update(AssessmentWorkflow.decide_site, SiteDecision(confirmed=True, capacity_mw=8.0))
+        first = await until("completed", retries_left=3)
+        assert first.report.verdict in ("maybe", "no_go")
+        assert "site_land" in {g.stage for g in first.gaps if g.retryable}
+
+        with pytest.raises(WorkflowUpdateFailedError):  # grid reads a snapshot: nothing a retry could fill
+            await handle.execute_update(AssessmentWorkflow.retry_stages, ["grid"])
+
+        await handle.execute_update(AssessmentWorkflow.retry_stages, ["site_land"])
+        second = await until("completed", retries_left=2)
+        assert all(g.stage != "site_land" for g in second.gaps)
+        assert calls == {"site_land": 2, "market": 1}  # market's first output was kept
+
+        with pytest.raises(WorkflowUpdateFailedError):  # site_land has no gap left to fill
+            await handle.execute_update(AssessmentWorkflow.retry_stages, ["site_land"])
+
+        final = await handle.result()  # the window closes with no further retry
+        assert final.retries_left == 2
+        assert final.report is not None

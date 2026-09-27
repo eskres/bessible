@@ -117,7 +117,12 @@ async def test_title_and_analysis_stages():
         assert "ukpn-gsp-project-status" in art.claim
         assert "2026-09-19" in art.claim
 
-    land = await site_land(node_in)
+    from unittest.mock import patch
+
+    from tests.possibility.test_hard import good_site
+
+    with patch("bessible.stages.site_land.collate", return_value=good_site()):  # offline: a clear, known site
+        land = await site_land(node_in)
     market = await market_revenue(node_in)
 
     fin = await financial_model(
@@ -194,3 +199,22 @@ async def test_site_land_stage_with_location_data():
     assert any("site_land-outside_flood_zone_3" in a.id for a in out.artifacts)
     assert any("site_land-title_found" in a.id for a in out.artifacts)
     assert all(a.stage == "site_land" for a in out.artifacts)
+
+
+@pytest.mark.anyio
+async def test_site_land_stage_raises_instead_of_inventing_a_site():
+    """A bug in the lookup reaches Temporal's retries; the stage never fabricates land data."""
+    from unittest.mock import patch
+
+    node_in = NodeInput(
+        run_id="test-land-error",
+        request=AssessmentRequest(postcode="RH4 1AD"),
+        site=ConfirmedSite(
+            position=Position(lat=51.2329, lon=-0.3315),
+            capacity_mw=20.0,
+            boundary=TitleOutput(title_number="RH1", boundary_geojson={}, area_m2=100000.0),
+        ),
+        capacity=CapacityOutput(viable=True, firm_mw=20.0, ceiling_mw=25.0),
+    )
+    with patch("bessible.stages.site_land.collate", side_effect=RuntimeError("boom")), pytest.raises(RuntimeError):
+        await site_land(node_in)

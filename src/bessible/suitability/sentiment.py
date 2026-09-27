@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from pydantic import HttpUrl
 
 from bessible.classifier import Classified, classify
-from bessible.models import Artifact, SentimentOutput
+from bessible.models import Artifact, DataGap, SentimentOutput
 from bessible.security import sanitize_untrusted_text
 from bessible.suitability.labels import ParagraphLabels
 from bessible.suitability.research import Research, Source
@@ -83,6 +83,24 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
 
     `model` is the run owner's model for the `llm` classifier backend.
     """
+    if not research.sources and research.unavailable:
+        gap = DataGap(
+            stage="sentiment",
+            what="local_news",
+            reason=research.unavailable,
+            sources=["news search"],
+            retryable=research.retryable,
+        )
+        missing_art = Artifact(
+            id=f"sentiment-none-{run_id[:8]}",
+            stage="sentiment",
+            claim=f"Local news not assessed: {research.unavailable}",
+            source_url=HttpUrl("https://news.google.com"),
+            confidence=0.2,
+            model_used="none",
+        )
+        return SentimentOutput(opposition_index=None, artifacts=[missing_art], gaps=[gap])
+
     if not research.sources:
         empty_art = Artifact(
             id=f"sentiment-none-{run_id[:8]}",

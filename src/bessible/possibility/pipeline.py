@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 
 from pydantic import HttpUrl
 
-from bessible.models import Artifact, SiteLandOutput
+from bessible.models import Artifact, DataGap, SiteLandOutput
+
+from .hard import can_block
 
 if TYPE_CHECKING:
     from .models import Check, PossibilityReport, Proposal
@@ -38,5 +40,19 @@ def site_land_output(proposal: Proposal, report: PossibilityReport, run_id: str)
     return SiteLandOutput(
         land_use=f"Agricultural land classification: {grades}",
         constraints=report.blockers + report.caveats,
+        blockers=report.blockers,
+        caveats=report.caveats,
+        gaps=[
+            DataGap(
+                stage="site_land",
+                what=c.name,
+                reason=c.reason,
+                sources=c.failed_sources,
+                retryable=bool(c.failed_sources),
+                could_block=can_block(c.name, proposal.limits),
+            )
+            for c in report.checks
+            if c.outcome == "unknown"
+        ],
         artifacts=artifacts,
     )

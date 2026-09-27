@@ -5,7 +5,7 @@ from __future__ import annotations
 from bessible.market import load_market_assumptions
 from bessible.market.sources import default_sources
 from bessible.market.stack import revenue_stack, total
-from bessible.models import Artifact, MarketOutput, NodeInput, StreamValue
+from bessible.models import Artifact, DataGap, MarketOutput, NodeInput, StreamValue
 
 
 async def market_revenue(inp: NodeInput) -> MarketOutput:
@@ -46,7 +46,25 @@ async def market_revenue(inp: NodeInput) -> MarketOutput:
         streams=streams_4h,
         by_duration=stack,
         artifacts=artifacts,
+        gaps=_gaps(stack),
     )
+
+
+def _gaps(stack: dict[int, list[StreamValue]]) -> list[DataGap]:
+    """One gap per stream served from a fallback: a failed live source (retryable) or a placeholder figure."""
+    gaps: dict[str, DataGap] = {}
+    for val in (v for rows in stack.values() for v in rows):
+        if val.stream in gaps:
+            continue
+        if val.cached and val.stream in LIVE_STREAMS:
+            reason = f"Live source failed; used the cached snapshot from {val.as_of.isoformat()}."
+            gaps[val.stream] = DataGap(
+                stage="market", what=val.stream, reason=reason, sources=[val.source], retryable=True
+            )
+        elif val.placeholder:
+            reason = "Placeholder figure: no published value yet."
+            gaps[val.stream] = DataGap(stage="market", what=val.scheme or val.stream, reason=reason)
+    return list(gaps.values())
 
 
 # How far the method itself can be trusted, before live/cached/placeholder: a published auction price is exact;

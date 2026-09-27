@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AssessmentResult, CapacityOutput, RunStatus, SiteDecision, TraceEvent } from './types';
-import { getRunResult, getRunStatus, sendDecision, subscribeEvents } from './api';
+import { getRunResult, getRunStatus, retryStages, sendDecision, subscribeEvents } from './api';
 
 /** Statuses a run never leaves: polling and streaming stop here. */
 const FINAL_STATUSES = ['completed', 'not_viable', 'failed', 'rejected', 'out_of_area'];
@@ -170,6 +170,18 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     }
   };
 
+  /** Re-runs stages with retryable data gaps; the report stays on screen until the poll brings the new one. */
+  const retry = async (stages: string[]) => {
+    if (!runId || !tracked) return;
+    setErrorMsg(null);
+    try {
+      await retryStages(runId, stages);
+      setRunStatus({ run_id: runId, status: 'running' });
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not retry. Try again.');
+    }
+  };
+
   /** Declines the site: the run ends as rejected and the map stays put for the user to pick another location. */
   const exploreAnother = () => {
     releaseRun();
@@ -292,6 +304,7 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     decision,
     submitDecision,
     exploreAnother,
+    retry,
   };
 }
 

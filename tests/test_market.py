@@ -223,6 +223,8 @@ async def test_live_failure_falls_back_once_and_says_cached(tmp_path, monkeypatc
     assert "Period:" in art.claim
     assert "Source:" in art.claim
     assert art.confidence < 0.7
+    gap = next(g for g in out.gaps if g.what == "wholesale")
+    assert gap.retryable
 
 
 def test_default_sources_wraps_live_streams():

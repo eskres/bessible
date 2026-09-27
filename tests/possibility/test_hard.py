@@ -233,3 +233,58 @@ def test_report_survives_a_temporal_payload():
     assert not report.possible
     assert report.blockers == [c.reason for c in report.checks if c.outcome == "fail"]
     assert type(report).model_validate_json(report.model_dump_json()) == report
+
+
+def test_unknown_from_a_failed_source_names_it_and_links_the_attempt():
+    location = good_site(flood=None)
+    failed = SourceStatus(
+        name="EA: flood zones", url="https://example.org/flood", status="failed", detail="ReadTimeout"
+    )
+    location.sources = [s for s in location.sources if s.name != "EA: flood zones"] + [failed]
+    check = hard.outside_flood_zone_3(Proposal(location=location, battery_mw=20))
+    assert check.outcome == "unknown"
+    assert "EA: flood zones failed (ReadTimeout)" in check.reason
+    assert check.source_urls == ["https://example.org/flood"]
+    assert check.confidence == hard.UNKNOWN_CONFIDENCE
+
+
+def test_site_land_output_carries_blockers_caveats_and_gaps_separately():
+    from bessible.possibility.pipeline import site_land_output
+
+    proposal = propose(title=title(area_ha=0.02), flood=None)
+    out = site_land_output(proposal, assess(proposal), "run-1234")
+    assert out.blockers
+    assert "0.02" in out.blockers[0]
+    assert out.constraints == out.blockers + out.caveats
+    flood = next(g for g in out.gaps if g.what == "outside_flood_zone_3")
+    assert flood.could_block
+    assert not flood.retryable  # no source failed: nothing a retry could fetch
+    assert not any("not assessed" in c.lower() for c in out.constraints)
+
+
+def test_a_failed_source_makes_the_gap_retryable():
+    from bessible.possibility.pipeline import site_land_output
+
+    location = good_site(flood=None)
+    failed = SourceStatus(name="EA: flood zones", url="https://example.org/flood", status="failed", detail="500")
+    location.sources = [s for s in location.sources if s.name != "EA: flood zones"] + [failed]
+    proposal = Proposal(location=location, battery_mw=20)
+    gap = next(g for g in site_land_output(proposal, assess(proposal), "run-1234").gaps)
+    assert gap.what == "outside_flood_zone_3"
+    assert gap.retryable
+    assert gap.sources == ["EA: flood zones"]
+
+
+def test_a_failed_designation_layer_is_not_a_pass():
+    location = good_site()
+    location.sources.append(SourceStatus(name="Natural England: sac", url="https://example.org/sac", status="failed"))
+    check = hard.clear_of_protected_ecology(Proposal(location=location, battery_mw=20))
+    assert check.outcome == "unknown"
+    assert check.failed_sources == ["Natural England: sac"]
+
+
+def test_only_checks_that_can_fail_can_hide_a_blocker():
+    assert hard.can_block("outside_flood_zone_3", Limits())
+    assert not hard.can_block("avoids_best_farmland", Limits())
+    assert not hard.can_block("grid_headroom", Limits())
+    assert hard.can_block("grid_headroom", Limits(min_headroom_mw=1))

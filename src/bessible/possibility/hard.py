@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING
 
-from .models import Check, Fact, Outcome, PossibilityReport, Proposal
+from .models import Check, Fact, Limits, Outcome, PossibilityReport, Proposal
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from bessible.location.models import Designation, Substation
 
 HA_PER_ACRE = 0.40468564
+UNKNOWN_CONFIDENCE = 0.2  # an "unknown" check is a gap in the evidence, not a finding
 
 PROTECTED_ECOLOGY = ("sssi", "sac", "spa", "ramsar", "national_nature_reserve", "ancient_woodland")
 PROTECTED_HERITAGE = (
@@ -74,7 +75,7 @@ def outside_flood_zone_3(proposal: Proposal) -> Check:
     result = partial(_check, "outside_flood_zone_3", proposal, FLOOD_SOURCE)
     flood, limit = proposal.location.deterministic.flood, proposal.limits.max_flood_zone_3_pct
     if flood is None:
-        return result("unknown", "Flood zones not assessed (England only).")
+        return result("unknown", _not_assessed("Flood zones", proposal))
     outcome: Outcome = "fail" if flood.zone_3_pct >= limit else "warn" if flood.zone > 1 else "pass"
     reason = f"{flood.zone_3_pct}% of the title is in Flood Zone 3, {flood.zone_2_pct}% in Zone 2 (limit {limit:g}%)."
     return result(outcome, reason, zone=flood.zone, zone_3_pct=flood.zone_3_pct, zone_2_pct=flood.zone_2_pct)
@@ -84,7 +85,7 @@ def outside_green_belt(proposal: Proposal) -> Check:
     result = partial(_check, "outside_green_belt", proposal, LAND_SOURCES)
     land = proposal.location.deterministic.land
     if land is None:
-        return result("unknown", "Green belt not assessed (England only).")
+        return result("unknown", _not_assessed("Green belt", proposal))
     if not land.green_belt:
         return result("pass", "Not in the green belt.")
     return result("warn", f"In the green belt ({land.green_belt_name or 'unnamed'}): needs very special circumstances.")
@@ -94,7 +95,7 @@ def avoids_best_farmland(proposal: Proposal) -> Check:
     result = partial(_check, "avoids_best_farmland", proposal, LAND_SOURCES)
     land = proposal.location.deterministic.land
     if land is None:
-        return result("unknown", "Farmland grade not assessed (England only).")
+        return result("unknown", _not_assessed("Farmland grade", proposal))
     if land.best_and_most_versatile is None:
         return result("unknown", "Farmland grade unknown: provisional Grade 3 is not split into 3a / 3b here.")
     grades = ", ".join(f"{g.grade} {g.overlap_pct:g}%" for g in land.alc)
@@ -123,8 +124,10 @@ def clear_of_protected_landscape(proposal: Proposal) -> Check:
 def _clear_of(kinds: tuple[str, ...], name: str, proposal: Proposal) -> Check:
     result = partial(_check, name, proposal, DESIGNATION_SOURCES)
     if not _designations_cover(proposal):
-        return result("unknown", "Designations not assessed (England only).")
+        return result("unknown", _not_assessed("Designations", proposal))
     on_site = [d for d in proposal.location.deterministic.designations if d.kind in kinds and d.on_site]
+    if not on_site and _failed(proposal, DESIGNATION_SOURCES):
+        return result("unknown", f"None found on the title ({', '.join(kinds)}), but not every layer answered.")
     if not on_site:
         return result("pass", f"None on the title ({', '.join(kinds)}).")
     covered_pct, limit = max(map(_covered_pct, on_site)), proposal.limits.max_protected_pct
@@ -215,6 +218,23 @@ HARD_CHECKS: tuple[Callable[[Proposal], Check], ...] = (
 )
 
 
+# The checks that can fail, i.e. whose missing data could be hiding a blocker. The others can only warn.
+CAN_BLOCK = frozenset({
+    "enough_area",
+    "buildable_slope",
+    "outside_flood_zone_3",
+    "clear_of_protected_ecology",
+    "clear_of_protected_heritage",
+    "clear_of_protected_landscape",
+    "substation_within_reach",
+})
+
+
+def can_block(name: str, limits: Limits) -> bool:
+    """Whether a check of this name could fail under these limits (headroom blocks only when asked to)."""
+    return name in CAN_BLOCK or (name == "grid_headroom" and limits.min_headroom_mw > 0)
+
+
 def assess(proposal: Proposal) -> PossibilityReport:
     checks = [check(proposal) for check in HARD_CHECKS]
     blockers = [c.reason for c in checks if c.outcome == "fail"]
@@ -234,7 +254,34 @@ def _check(
     name: str, proposal: Proposal, sources: tuple[str, ...], outcome: Outcome, reason: str, **facts: Fact
 ) -> Check:
     rounded = {k: round(v, 2) if isinstance(v, float) else v for k, v in facts.items()}
-    return Check(name=name, outcome=outcome, reason=reason, facts=rounded, source_urls=_source_urls(proposal, sources))
+    urls = _source_urls(proposal, sources)
+    if outcome != "unknown":
+        return Check(name=name, outcome=outcome, reason=reason, facts=rounded, source_urls=urls)
+    # No data: say which source let us down, and point at the request we attempted.
+    missed = [s for s in proposal.location.sources if s.status != "ok" and s.name.startswith(sources)]
+    if missed:
+        why = [f"{s.name} {s.status}" + (f" ({s.detail[:120]})" if s.detail else "") for s in missed]
+        reason += f" {'; '.join(why)}."
+    attempted = [s.url for s in missed if s.url.startswith("http")]
+    return Check(
+        name=name,
+        outcome=outcome,
+        reason=reason,
+        facts=rounded,
+        source_urls=urls + [u for u in attempted if u not in urls],
+        failed_sources=_failed(proposal, sources),
+        confidence=UNKNOWN_CONFIDENCE,
+    )
+
+
+def _not_assessed(what: str, proposal: Proposal) -> str:
+    """Why a check has no data: outside the England-only sources, or (appended by `_check`) a failed source."""
+    outside = proposal.location.deterministic.locality.country not in {None, "England"}
+    return f"{what} not assessed (England only)." if outside else f"{what} not assessed."
+
+
+def _failed(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:
+    return [s.name for s in proposal.location.sources if s.status == "failed" and s.name.startswith(prefixes)]
 
 
 def _source_urls(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:

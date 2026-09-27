@@ -9,7 +9,7 @@ from pathlib import Path
 
 from bessible.footprint import reserved_acres, reserved_acres_by_duration
 from bessible.guard import check_narration
-from bessible.models import Artifact, Finding, ReportOutput, SynthesisInput, Verdict
+from bessible.models import Artifact, DataGap, Finding, ReportOutput, SiteLandOutput, SynthesisInput, Verdict
 from bessible.suitability.verdict import decide
 
 REFERENCE_DURATION_HOURS = 4
@@ -50,6 +50,36 @@ def flatten_state(inp: SynthesisInput) -> dict[str, float]:
     return state
 
 
+def _land_finding(land: SiteLandOutput) -> str:
+    """The land stage in one sentence: its worst outcome first, and what could not be checked."""
+    if land.blockers:
+        text = f"Land classification: {land.land_use}; blocker: {land.blockers[0]}"
+    elif land.caveats:
+        text = f"Land classification: {land.land_use}; caveat: {land.caveats[0]}"
+    else:
+        text = f"Land classification: {land.land_use}; no blocking land constraint found."
+    if land.gaps:
+        text += " Not assessed: " + ", ".join(g.what for g in land.gaps) + "."
+    return text
+
+
+def all_gaps(inp: SynthesisInput) -> list[DataGap]:
+    """Missing evidence from every analysis stage, in pipeline order."""
+    outputs = (inp.grid, inp.site_land, inp.market, inp.sentiment)
+    return [g for out in outputs if out is not None for g in out.gaps]
+
+
+def _gap_lines(gaps: list[DataGap]) -> list[str]:
+    if not gaps:
+        return []
+    lines = ["", "## Data Gaps", "Evidence the assessment could not obtain. Retrying may fill temporary gaps."]
+    for g in gaps:
+        kind = "temporary, retry may fix" if g.retryable else "no coverage here"
+        effect = "; could hide a blocker" if g.could_block else ""
+        lines.append(f"- **{g.stage} / {g.what}** ({kind}{effect}): {g.reason}")
+    return lines
+
+
 def _build_findings(inp: SynthesisInput, art_ids_by_stage: dict[str, list[str]]) -> list[Finding]:
     findings: list[Finding] = []
     if "capacity" in art_ids_by_stage:
@@ -74,12 +104,7 @@ def _build_findings(inp: SynthesisInput, art_ids_by_stage: dict[str, list[str]])
             )
         )
     if "site_land" in art_ids_by_stage:
-        findings.append(
-            Finding(
-                text=f"Land classification: {inp.site_land.land_use}; constraints manageable with standard mitigation.",
-                artifact_ids=art_ids_by_stage["site_land"],
-            )
-        )
+        findings.append(Finding(text=_land_finding(inp.site_land), artifact_ids=art_ids_by_stage["site_land"]))
     if "financial" in art_ids_by_stage:
         best = max((c for c in inp.financial.cases if c.irr is not None), key=lambda c: c.irr, default=None)
         c4 = next((c for c in inp.financial.cases if c.duration_h == REFERENCE_DURATION_HOURS), None)
@@ -227,6 +252,8 @@ def _render_markdown(
             f"- **Top Community Concerns:** {', '.join(inp.sentiment.top_concerns) if inp.sentiment.top_concerns else 'None specified'}",
             f"- **Research Coverage:** {inp.sentiment.sources} local news sources, {inp.sentiment.paragraphs} classified paragraphs",
         ])
+
+    lines.extend(_gap_lines(all_gaps(inp)))
 
     lines.extend(["", "## Key Findings"])
     for f in findings:

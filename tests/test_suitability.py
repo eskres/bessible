@@ -13,6 +13,7 @@ from bessible.models import (
     AssessmentRequest,
     CapacityOutput,
     ConfirmedSite,
+    DataGap,
     DurationCase,
     FinancialInput,
     FinancialOutput,
@@ -277,3 +278,63 @@ async def test_end_to_end_suitability_stages():
     report_text = report_path.read_text(encoding="utf-8")
     assert "Bessible BESS Suitability Assessment" in report_text
     assert "Storage Duration Comparison" in report_text
+
+
+def test_decide_land_blockers_and_caveats():
+    """Land blockers reject and land caveats caution, whatever words the check reasons use."""
+    fin = FinancialOutput(
+        cases=[
+            DurationCase(duration_h=2, capex_gbp=3.9e6, npv_gbp=2.1e6, irr=0.195),
+            DurationCase(duration_h=4, capex_gbp=6.7e6, npv_gbp=1.9e6, irr=0.140),
+            DurationCase(duration_h=8, capex_gbp=12.3e6, npv_gbp=0.1e6, irr=0.082),
+        ],
+        recommended_h=4,
+    )
+    sent = SentimentOutput(opposition_index=0.20)
+    blocked = SiteLandOutput(land_use="x", blockers=["32 MWh needs 0.65-0.97 ha; the title has 0.02."])
+    verdict, rules = decide(fin, sent, blocked)
+    assert verdict == "no_go"
+    assert "0.02" in rules[0]
+    caveated = SiteLandOutput(land_use="x", caveats=["Median slope 6.8% (limit 10%), relief 1.65 m."])
+    assert decide(fin, sent, caveated)[0] == "maybe"
+    minor = DataGap(stage="site_land", what="avoids_best_farmland", reason="Grade 3 not split.")
+    assert decide(fin, sent, SiteLandOutput(land_use="x", gaps=[minor]))[0] == "go"
+    material = DataGap(stage="site_land", what="outside_flood_zone_3", reason="EA failed.", could_block=True)
+    verdict, rules = decide(fin, sent, SiteLandOutput(land_use="x", gaps=[material]))
+    assert verdict == "maybe"
+    assert "outside_flood_zone_3" in rules[0]
+    both = SiteLandOutput(land_use="x", blockers=["Too small."], gaps=[material])
+    assert decide(fin, sent, both)[0] == "no_go"  # a known blocker decides, whatever else is missing
+
+
+def test_report_labels_each_gap():
+    from bessible.stages.synthesis import _gap_lines
+
+    lines = _gap_lines([
+        DataGap(stage="site_land", what="outside_flood_zone_3", reason="EA failed.", retryable=True, could_block=True),
+        DataGap(stage="site_land", what="avoids_best_farmland", reason="Grade 3 not split."),
+    ])
+    assert "## Data Gaps" in lines
+    assert any("temporary, retry may fix; could hide a blocker" in ln for ln in lines)
+    assert any("avoids_best_farmland** (no coverage here)" in ln for ln in lines)
+    assert _gap_lines([]) == []
+
+
+@pytest.mark.anyio
+async def test_failed_news_search_is_a_retryable_gap_not_no_coverage():
+    from unittest.mock import AsyncMock, patch
+
+    from bessible.suitability.sentiment import process_sentiment
+
+    with patch("bessible.suitability.research.research_agent.run", AsyncMock(side_effect=TimeoutError("slow"))):
+        research = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0, model=object())
+    assert research.retryable
+    out = await process_sentiment("run-12345678", research)
+    assert out.opposition_index is None
+    assert out.gaps[0].retryable
+    assert "not assessed" in out.artifacts[0].claim
+    assert out.artifacts[0].confidence < 0.5
+
+    offline = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0)
+    assert offline.unavailable
+    assert not offline.retryable

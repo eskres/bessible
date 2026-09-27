@@ -226,7 +226,20 @@ export interface AssessmentResult {
   financial?: FinancialOutput | null;
   report?: ReportOutput;
   artifacts: Artifact[];
+  /** Evidence the run could not get; the retryable ones can be fetched again while `retries_left` > 0. */
+  gaps?: DataGap[];
+  retries_left?: number;
   run_dir?: string;
+}
+
+/** Mirrors `bessible.models.DataGap`. */
+export interface DataGap {
+  stage: string;
+  what: string;
+  reason: string;
+  sources: string[];
+  retryable: boolean;
+  could_block: boolean;
 }
 
 export interface TraceEvent {
