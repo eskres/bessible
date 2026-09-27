@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AssessmentResult, Artifact, FinancialCase } from '../lib/types';
 import { downloadMarkdownReport, printReport } from '../lib/reportExport';
+import { StageBadge, stageStyle } from '../lib/stages';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,15 +39,79 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertTriangle,
+  ChevronDown,
+  MapPin,
+  OctagonX,
 } from 'lucide-react';
+
+/** Evidence categories shown in the report, each a set of pipeline stages, styled like its `style` stage. */
+const ARTIFACT_CATEGORIES: { label: string; stages: string[]; style: string }[] = [
+  { label: 'Site & Land', stages: ['location', 'title', 'site_land'], style: 'site_land' },
+  { label: 'Grid Connection', stages: ['capacity', 'grid'], style: 'grid' },
+  { label: 'Planning', stages: ['planning'], style: 'planning' },
+  { label: 'Community Sentiment', stages: ['sentiment'], style: 'sentiment' },
+  { label: 'Revenue & Finance', stages: ['market', 'financial'], style: 'financial' },
+  { label: 'Verdict', stages: ['synthesis'], style: 'synthesis' },
+];
+
+function groupArtifacts(artifacts: Artifact[]): { label: string; style: string; items: Artifact[] }[] {
+  const known = new Set(ARTIFACT_CATEGORIES.flatMap((c) => c.stages));
+  const groups = ARTIFACT_CATEGORIES.map(({ label, stages, style }) => ({
+    label,
+    style,
+    items: artifacts.filter((a) => stages.includes(a.stage)),
+  }));
+  groups.push({ label: 'Other', style: 'other', items: artifacts.filter((a) => !known.has(a.stage)) });
+  return groups.filter((g) => g.items.length > 0);
+}
+
+type Outcome = 'Blocker' | 'Caveat';
+
+/** Hard-check claims start with their outcome ("Blocker: ...", "Caveat: ..."); split it off, if there is one. */
+function splitOutcome(claim: string): { outcome: Outcome | null; text: string } {
+  const [head, ...rest] = claim.split(': ');
+  return head === 'Blocker' || head === 'Caveat' ? { outcome: head, text: rest.join(': ') } : { outcome: null, text: claim };
+}
+
+function countOutcomes(items: Artifact[]): Record<Outcome, number> {
+  const counts = { Blocker: 0, Caveat: 0 };
+  for (const a of items) {
+    const { outcome } = splitOutcome(a.claim);
+    if (outcome) counts[outcome] += 1;
+  }
+  return counts;
+}
+
+/** Card border and pill for an outcome that needs attention. Only blockers get a coloured border. */
+const OUTCOME_STYLE: Record<Outcome, { card: string; pill: string; icon: typeof AlertTriangle }> = {
+  Blocker: {
+    card: 'border-red-500/70 hover:border-red-500',
+    pill: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40',
+    icon: OctagonX,
+  },
+  Caveat: {
+    card: 'border-border hover:border-foreground/30', // the pill is enough
+    pill: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
+    icon: AlertTriangle,
+  },
+};
+
+/** A `bessible-` / `demo-` / `sim-` run id shortened to the first 8 characters after its prefix; others as they are. */
+function shortRunId(id: string): string {
+  const m = id.match(/^(?:bessible|demo|sim)-(.+)$/);
+  return m ? m[1].slice(0, 8) : id;
+}
 
 interface ReportViewProps {
   result: AssessmentResult;
   onReset?: () => void;
+  /** A read-only map of the site; when given, a pin icon next to the coordinates opens it in a dialog. */
+  siteMap?: React.ReactNode;
 }
 
-export default function ReportView({ result, onReset }: ReportViewProps) {
+export default function ReportView({ result, onReset, siteMap }: ReportViewProps) {
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const { capacity, site, grid_connection, land_planning, financial, artifacts = [] } = result;
   const recommendedH = financial?.recommended_h ?? null;
   const [selectedDurationH, setSelectedDurationH] = useState<number>(recommendedH ?? 4);
@@ -92,13 +157,31 @@ export default function ReportView({ result, onReset }: ReportViewProps) {
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               BESS Feasibility Dossier
             </span>
-            <span className="text-xs text-muted-foreground font-mono">Run: {result.run_id}</span>
+            {result.run_id && (
+              <span className="text-xs text-muted-foreground font-mono" title={result.run_id}>
+                Run: {shortRunId(result.run_id)}
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
+            {result.postcode && <span className="text-emerald-700 dark:text-emerald-400">{result.postcode.toUpperCase()} · </span>}
             {capacityMw} MW / {capacityMw * activeH} MWh Battery Energy Storage Assessment
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
-            <span>Coordinates: <strong className="text-foreground font-mono">{posString}</strong></span>
+            <span className="inline-flex items-center gap-1">
+              Coordinates: <strong className="text-foreground font-mono">{posString}</strong>
+              {siteMap && (
+                <button
+                  type="button"
+                  onClick={() => setMapOpen(true)}
+                  title="Show the site on the map"
+                  aria-label="Show the site on the map"
+                  className="p-0.5 rounded-md text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition"
+                >
+                  <MapPin className="w-4 h-4" />
+                </button>
+              )}
+            </span>
             <span>•</span>
             <span>Serving: <strong className="text-foreground">{grid_connection?.serving_substation || cap.serving_substation}</strong></span>
             <span>•</span>
@@ -525,7 +608,7 @@ export default function ReportView({ result, onReset }: ReportViewProps) {
                     onClick={() => setSelectedArtifact(a)}
                     className="flex items-start gap-3 p-3 rounded-xl border border-border bg-muted/20 text-xs cursor-pointer hover:border-emerald-500/50 hover:bg-muted/30 transition shadow-2xs"
                   >
-                    <span className={`shrink-0 w-16 text-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${tone}`}>
+                    <span className={`shrink-0 w-20 text-center px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase ${tone}`}>
                       {outcome}
                     </span>
                     <div>
@@ -553,35 +636,98 @@ export default function ReportView({ result, onReset }: ReportViewProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {artifacts.map((art) => (
-            <div
-              key={art.id}
-              onClick={() => setSelectedArtifact(art)}
-              className="p-3.5 rounded-xl border border-border hover:border-emerald-500/60 bg-muted/20 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between group shadow-2xs"
-            >
-              <div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
-                    {art.stage}
-                  </Badge>
-                  <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-                    {(art.confidence * 100).toFixed(0)}% Confidence
-                  </span>
-                </div>
-                <p className="mt-2 text-xs font-semibold text-foreground line-clamp-3 leading-relaxed">
-                  {art.claim}
-                </p>
-              </div>
+        <CardContent className="p-4 space-y-3">
+          {groupArtifacts(artifacts).map(({ label, style, items }) => {
+            const outcomes = countOutcomes(items);
+            const accent = stageStyle(style).accent;
+            return (
+              <details key={label} open className={`group rounded-xl border border-border border-l-4 ${accent} bg-muted/10`}>
+                <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-2">
+                    <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform -rotate-90 group-open:rotate-0" />
+                    <StageBadge stage={style} label={label} size="md" />
+                    <span className="text-xs text-muted-foreground">
+                      {items.length} artifact{items.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase">
+                    {(['Blocker', 'Caveat'] as const).map((k) => {
+                      const n = outcomes[k];
+                      if (!n) return null;
+                      const Icon = OUTCOME_STYLE[k].icon;
+                      return (
+                        <span key={k} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border ${OUTCOME_STYLE[k].pill}`}>
+                          <Icon className="w-3 h-3" />
+                          {n} {k.toLowerCase()}
+                          {n === 1 ? '' : 's'}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </summary>
+                <div className="pl-10 pr-4 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {items.map((art) => {
+                    const { outcome } = splitOutcome(art.claim);
+                    const o = outcome ? OUTCOME_STYLE[outcome] : null;
+                    return (
+                      <div
+                        key={art.id}
+                        onClick={() => setSelectedArtifact(art)}
+                        className={`p-3.5 rounded-xl border ${o ? o.card : 'border-border hover:border-foreground/30'} bg-muted/20 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between group shadow-2xs`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 text-[10px]">
+                            <StageBadge stage={art.stage} />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                                {(art.confidence * 100).toFixed(0)}% Confidence
+                              </span>
+                              {o && outcome && (
+                                <span
+                                  title={outcome}
+                                  aria-label={outcome}
+                                  className={`inline-flex items-center justify-center p-1 rounded-md border ${o.pill}`}
+                                >
+                                  <o.icon className="w-3 h-3" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs font-semibold text-foreground line-clamp-3 leading-relaxed">{art.claim}</p>
+                        </div>
 
-              <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span className="truncate max-w-[130px] font-medium">{art.source_name}</span>
-                <span className="font-mono">{art.snapshot_date || 'Live API'}</span>
-              </div>
-            </div>
-          ))}
+                        <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span className="truncate max-w-[130px] font-medium">{art.source_name}</span>
+                          <span className="font-mono">{art.snapshot_date || 'Live API'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          })}
         </CardContent>
       </Card>
+
+      {/* Site map dialog */}
+      {siteMap && (
+        <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+          <DialogContent className="sm:max-w-5xl border-border bg-card rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                {result.postcode ? `${result.postcode.toUpperCase()} · ` : ''}
+                {posString}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                The confirmed site, its reserved compound and the cable run to the serving substation.
+              </DialogDescription>
+            </DialogHeader>
+            {siteMap}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Artifact Modal Dialog */}
       <Dialog open={selectedArtifact !== null} onOpenChange={(open) => !open && setSelectedArtifact(null)}>

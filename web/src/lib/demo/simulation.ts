@@ -170,11 +170,13 @@ export function simulateResult(
   runId: string,
   position: [number, number],
   capacityMw: number,
-  capacity: CapacityOutput
+  capacity: CapacityOutput,
+  postcode?: string
 ): AssessmentResult {
   const acres = Number((capacityMw * 4 * 0.0625).toFixed(2));
   return {
     run_id: runId,
+    postcode,
     site: { position, capacity_mw: capacityMw, reserved_acres: acres },
     capacity,
     grid_connection: {
@@ -209,6 +211,14 @@ export function simulateResult(
         confidence: 0.95,
         source_name: 'National Grid ESO Embedded Generation Register',
         snapshot_date: 'Q3 2026',
+      },
+      {
+        id: 'site_land-flood_zone-05',
+        stage: 'site_land',
+        claim: 'Caveat: Flood Zone 2 covers 8% of the title; keep the compound on the northern part.',
+        confidence: 0.9,
+        source_name: 'Environment Agency Flood Map for Planning',
+        snapshot_date: 'Sep 2026',
       },
       {
         id: 'art-03',

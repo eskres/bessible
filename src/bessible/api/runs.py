@@ -165,4 +165,4 @@ async def get_run_result(run_id: str, user: Annotated[User, Depends(current_user
         handle_temporal_error(exc, run_id)
         raise
     else:
-        return result
+        return result.model_copy(update={"run_id": run_id})  # runs finished before the field existed lack it

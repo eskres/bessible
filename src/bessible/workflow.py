@@ -326,6 +326,12 @@ class AssessmentWorkflow:
     async def run(self, request: AssessmentRequest) -> AssessmentResult:
         """Execute end-to-end BESS site assessment workflow."""
         run_id = workflow.info().workflow_id
+        result = await self._assess(run_id, request)
+        postcode = self._location.postcode if self._location else None
+        return result.model_copy(update={"run_id": run_id, "postcode": postcode})
+
+    async def _assess(self, run_id: str, request: AssessmentRequest) -> AssessmentResult:
+        """All stages in order; each early stop returns its own result."""
         self._request = request
         all_artifacts: list[Artifact] = []
 

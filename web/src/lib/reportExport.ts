@@ -44,7 +44,7 @@ export function generateMarkdownReport(result: AssessmentResult): string {
 
   return `# Bessible BESS Site Assessment Report
 
-**Run ID:** \`${result.run_id}\`  
+${result.postcode ? `**Postcode:** ${result.postcode.toUpperCase()}  \n` : ''}**Run ID:** \`${result.run_id ?? 'N/A'}\`  
 **Date:** ${dateStr}  
 **Classification:** Screening Estimate (Preliminary Evaluation Only)
 
@@ -123,7 +123,7 @@ export function downloadMarkdownReport(result: AssessmentResult): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `bessible-assessment-${result.run_id}.md`;
+  a.download = `bessible-assessment-${result.run_id ?? result.postcode?.replace(/\s+/g, '') ?? 'report'}.md`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

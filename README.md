@@ -18,6 +18,36 @@ Bessible assesses real estate properties for Battery Energy Storage Systems (BES
 
 ---
 
+## Quick Start (Local)
+
+Run the whole stack on your machine: Temporal, the worker, the FastAPI server and the web UI.
+
+```bash
+./scripts/setup.sh    # once: installs uv, Temporal CLI, Node, dependencies, and creates .env
+./scripts/dev.sh      # starts everything; Ctrl+C stops it
+```
+
+* Web UI: **http://localhost:3000** (opens automatically on macOS)
+* API: **http://localhost:8000**
+* Temporal UI: **http://localhost:8233**
+* Logs: `out/logs/`
+
+`.env` needs at least `GOOGLE_API_KEY` and `KEY_ENCRYPTION_SECRET` (see [Prerequisites](#1-prerequisites--environment-check)).
+
+**Run without sign-in:** with Firebase keys in `.env`, the app asks for Google sign-in. To skip it locally:
+
+```bash
+AUTH_ENABLED=false ./scripts/dev.sh
+```
+
+Or set `AUTH_ENABLED=false` in `.env`. This turns sign-in off in both the web UI and the API: every request runs as
+one local user, whose Google key starts as `GOOGLE_API_KEY` from `.env` (a key saved in Settings replaces it). Use it
+for local development only, never on a public deployment.
+
+The sections below start each service by hand, for debugging one part.
+
+---
+
 ## Running the Backend
 
 ### 1. Prerequisites & Environment Check
@@ -150,7 +180,7 @@ npm run dev
 
 The web app supports two workspace modes:
 
-1. **Live Workspace:** Authenticated mode (Firebase Google sign-in) with Bring Your Own Key (BYOK) for live agent reasoning, live DNO headroom queries, road cable routing, and full report generation.
+1. **Live Workspace:** Authenticated mode (Firebase Google sign-in) with Bring Your Own Key (BYOK) for live agent reasoning, live DNO headroom queries, road cable routing, and full report generation. Locally, `AUTH_ENABLED=false` skips sign-in (see [Quick Start](#quick-start-local)).
 2. **Demo Workspace:** Keyless mode requiring no login, no API keys, and no Temporal server. Includes 3 pre-recorded presets from live runs:
    - **Dorking (RH4 1AD):** Primary substation connection with viable headroom in UK Power Networks (UKPN) territory.
    - **Histon (CB24 9LQ):** Primary substation connection near Cambridge in UKPN territory.
@@ -161,13 +191,9 @@ The web app supports two workspace modes:
      - `http://localhost:3000/?state=confirm` — inspect the human-in-the-loop confirmation card UI.
      - `http://localhost:3000/?state=report` — inspect the synthesized report viewer UI.
 
-### Alternative: All-in-One Dev Script
+### All-in-One Dev Script
 
-To start Temporal dev server, the Python worker, FastAPI API server, and the Next.js frontend all together in a single command:
-
-```bash
-./scripts/dev.sh
-```
+`./scripts/dev.sh` starts Temporal, the worker, the API and the web UI in one command. See [Quick Start](#quick-start-local).
 
 ---
 
@@ -376,9 +402,16 @@ async def synthesise(inp: SynthesisInput) -> ReportOutput: ...
 
 Bessible is containerised and configured for automated continuous deployment to the **GitHub Container Registry (GHCR)** (`ghcr.io`).
 
-### 1. Docker Compose (Run Everything in Containers)
+### 1. Docker Compose (Server Deployment behind Traefik)
 
-You can launch the complete stack—Temporal Server (with SQLite persistence), FastAPI Backend, Background Worker, and Next.js Frontend—with a single command:
+`docker-compose.yml` runs the complete stack—Temporal Server (with SQLite persistence), FastAPI Backend, Background
+Worker, and Next.js Frontend—on a server that already runs [Traefik](https://traefik.io). **It is not for local use:**
+no service publishes a port, and traffic reaches the containers only through Traefik. To run locally, use
+[`./scripts/dev.sh`](#quick-start-local).
+
+Requirements on the server:
+* An external Docker network named `TRAEFIK_NETWORK` (default `traefik_proxy`) that Traefik is attached to.
+* `DOMAIN` and `TRAEFIK_ENTRYPOINT` set in `.env` (see `.env.example`).
 
 ```bash
 # Ensure your API keys are in .env
@@ -389,10 +422,9 @@ docker compose up --build
 ```
 
 Services started:
-* **Web UI:** [http://localhost:3000](http://localhost:3000)
-* **FastAPI Backend:** [http://localhost:8000](http://localhost:8000) (Health check: `/health`)
-* **Temporal Web UI:** [http://localhost:8233](http://localhost:8233)
-* **Temporal Server:** `localhost:7233` (backed by SQLite database in `temporal-data` volume)
+* **Web UI:** `https://$DOMAIN/`
+* **FastAPI Backend:** `https://$DOMAIN/` under `/runs`, `/me`, `/demo`, `/capacity`, `/site-data`, `/inspire`, `/health`, `/data`
+* **Temporal Server:** internal only (`temporal:7233`, SQLite database in the `temporal-data` volume)
 * **Temporal Worker:** Background worker listening on queue `bessible`
 
 To stop the containers:

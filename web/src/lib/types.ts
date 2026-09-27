@@ -202,7 +202,8 @@ export interface ReportOutput {
 }
 
 export interface AssessmentResult {
-  run_id: string;
+  run_id?: string;
+  postcode?: string;
   status?: RunStatusType;
   message?: string;
   site?: ConfirmedSite;

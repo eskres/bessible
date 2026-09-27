@@ -4,17 +4,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TraceEvent } from '../lib/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StageBadge } from '../lib/stages';
 import {
   Activity,
   Clock,
   Terminal,
   ArrowDown,
-  MapPin,
-  Zap,
-  Building,
-  Coins,
-  Sparkles,
-  FileCheck,
   CheckCircle2,
   Hand,
   XCircle,
@@ -44,40 +39,6 @@ const TONE_STYLE = {
   done: { className: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10', icon: CheckCircle2 },
   paused: { className: 'text-amber-700 dark:text-amber-300 border-amber-500/30 bg-amber-500/10', icon: Hand },
   stopped: { className: 'text-muted-foreground border-border bg-muted/40', icon: XCircle },
-};
-
-const STAGE_CONFIG: Record<
-  string,
-  { badge: string; icon: React.ReactNode }
-> = {
-  location: {
-    badge: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30',
-    icon: <MapPin className="w-3 h-3 text-indigo-500" />,
-  },
-  capacity: {
-    badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
-    icon: <Zap className="w-3 h-3 text-emerald-500" />,
-  },
-  title: {
-    badge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30',
-    icon: <FileCheck className="w-3 h-3 text-sky-500" />,
-  },
-  grid: {
-    badge: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30',
-    icon: <Zap className="w-3 h-3 text-blue-500" />,
-  },
-  planning: {
-    badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
-    icon: <Building className="w-3 h-3 text-amber-500" />,
-  },
-  financial: {
-    badge: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30',
-    icon: <Coins className="w-3 h-3 text-purple-500" />,
-  },
-  synthesis: {
-    badge: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30',
-    icon: <Sparkles className="w-3 h-3 text-teal-500" />,
-  },
 };
 
 export default function LiveTrace({
@@ -159,11 +120,6 @@ export default function LiveTrace({
             </div>
           ) : (
             events.map((ev) => {
-              const cfg = STAGE_CONFIG[ev.stage.toLowerCase()] || {
-                badge: 'bg-muted text-muted-foreground border-border',
-                icon: <Activity className="w-3 h-3 text-muted-foreground" />,
-              };
-
               return (
                 <div
                   key={ev.id}
@@ -174,12 +130,7 @@ export default function LiveTrace({
                   </span>
 
                   <div className="shrink-0 flex items-center gap-1">
-                    <span
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase font-bold border ${cfg.badge}`}
-                    >
-                      {cfg.icon}
-                      <span>{ev.stage}</span>
-                    </span>
+                    <StageBadge stage={ev.stage} />
                   </div>
 
                   <div className="flex-1 min-w-0 text-foreground text-xs leading-relaxed font-sans pt-0.5 [overflow-wrap:anywhere]">

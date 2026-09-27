@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
 
     # Demo deployment: Firebase sign-in and encrypted per-user Google keys.
+    # AUTH_ENABLED=false turns sign-in off in the API and the web UI: every caller is one local user. Local dev only.
+    auth_enabled: bool = True
     firebase_project_id: str | None = Field(
         default=None, validation_alias=AliasChoices("firebase_project_id", "next_public_firebase_project_id")
     )

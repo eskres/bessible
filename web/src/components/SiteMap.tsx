@@ -41,6 +41,10 @@ interface SiteMapProps {
   maxDistanceKm?: number;
   /** No run holds the site: a click places the pin anywhere and drags are not held to the screening radius. */
   freePlacement?: boolean;
+  /** The pin cannot move (the report's map). */
+  readOnly?: boolean;
+  /** Height classes for the map box; defaults to the workspace size. */
+  heightClassName?: string;
 }
 
 type MapsError = 'missing' | 'rejected' | 'failed';
@@ -194,6 +198,8 @@ export default function SiteMap({
   siteDataLoading = false,
   maxDistanceKm = 2.0,
   freePlacement = false,
+  readOnly = false,
+  heightClassName = 'h-[48vh] min-h-[370px] sm:h-[72vh] sm:min-h-[560px]',
 }: SiteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -217,9 +223,9 @@ export default function SiteMap({
   const distanceFromOrigin = distanceKm(initialCenter, currentPosition);
 
   // Latest props for the marker's dragend handler and the clamp, which must not re-bind on every render
-  const latestRef = useRef({ initialCenter, maxDistanceKm, capacityMw, onPositionChange, onPositionClamped, freePlacement });
+  const latestRef = useRef({ initialCenter, maxDistanceKm, capacityMw, onPositionChange, onPositionClamped, freePlacement, readOnly });
   useEffect(() => {
-    latestRef.current = { initialCenter, maxDistanceKm, capacityMw, onPositionChange, onPositionClamped, freePlacement };
+    latestRef.current = { initialCenter, maxDistanceKm, capacityMw, onPositionChange, onPositionClamped, freePlacement, readOnly };
   });
 
   // Initialize Map
@@ -294,7 +300,8 @@ export default function SiteMap({
 
     if (!pinMarkerRef.current) {
       const el = document.createElement('div');
-      el.className = 'site-marker flex items-center justify-center cursor-grab active:cursor-grabbing group';
+      const fixed = latestRef.current.readOnly;
+      el.className = `site-marker flex items-center justify-center group ${fixed ? '' : 'cursor-grab active:cursor-grabbing'}`;
       el.innerHTML = `
         <div class="relative flex items-center justify-center">
           <div class="absolute -inset-2 bg-emerald-500/20 rounded-full animate-ping pointer-events-none"></div>
@@ -314,7 +321,7 @@ export default function SiteMap({
         map,
         position: toLatLng(currentPosition),
         content: centered(el),
-        gmpDraggable: true,
+        gmpDraggable: !fixed,
         zIndex: 1000,
       });
 
@@ -357,12 +364,13 @@ export default function SiteMap({
   // The hover hint says what a drag can do now
   useEffect(() => {
     const hint = (pinMarkerRef.current?.content as HTMLElement | null)?.querySelector('[data-drag-hint]');
-    if (hint) {
+    if (hint && readOnly) hint.remove();
+    else if (hint) {
       hint.textContent = freePlacement
         ? 'Drag, or click the map, to place the site'
         : `Drag to move within ${maxDistanceKm} km`;
     }
-  }, [mapLoaded, freePlacement, maxDistanceKm]);
+  }, [mapLoaded, freePlacement, maxDistanceKm, readOnly]);
 
   // Keep the whole Reserved Compound inside the screening radius after a capacity or centre change, not just on drag
   useEffect(() => {
@@ -744,7 +752,7 @@ export default function SiteMap({
 
   return (
     <div className="relative w-full">
-      <div className="relative w-full h-[48vh] min-h-[370px] sm:h-[72vh] sm:min-h-[560px] rounded-2xl overflow-hidden border border-border shadow-md bg-muted">
+      <div className={`relative w-full ${heightClassName} rounded-2xl overflow-hidden border border-border shadow-md bg-muted`}>
         <div ref={mapContainer} className="w-full h-full" />
 
         {mapsError && (
