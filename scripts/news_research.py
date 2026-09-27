@@ -3,8 +3,9 @@
     uv run python scripts/news_research.py <lat> <lon> [--model] [--record] [--fixture NAME]
 
 --model     select paragraphs and label them with your Gemini key (GOOGLE_API_KEY), as a run would
---record    copy this run's Tavily responses to data/recorded/tavily/ (committed; serves the offline demo)
---fixture   save the first query's raw response as tests/api/fixtures/tavily_search_<NAME>.json
+--record    copy this run's Tavily responses (searches and extract) to data/recorded/tavily/ (serves the offline demo)
+--fixture   save the first query's raw response as tests/api/fixtures/tavily_search_<NAME>.json, and the extract
+            response (if any) as tavily_extract_<NAME>.json
 
 Needs TAVILY_API_KEY in .env. Prints the queries, credits, and every source URL with its quotes and labels.
 """
@@ -15,7 +16,6 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import date
 
 from bessible.config import settings
 from bessible.location import Coordinates, locality
@@ -47,7 +47,9 @@ async def main() -> None:
     print(f"queries ({len(research.queries)}):", *research.queries, sep="\n  ")
     print(f"status={research.status} results={research.results} pages_read={research.pages_read}")
     print(f"credits={research.credits:g} cached={research.cached} selected_by={research.selected_by}")
-    print(f"dropped (not verbatim)={research.dropped} unavailable={research.unavailable}")
+    print(
+        f"dropped (not verbatim)={research.dropped} extracted={research.extracted} unavailable={research.unavailable}"
+    )
     for a in out.artifacts:
         print(f"\n[{a.id}] {a.source_url}\n  {a.claim}\n  model={a.model_used} confidence={a.confidence}")
     for s in research.sources:
@@ -55,10 +57,13 @@ async def main() -> None:
         for q in s.paragraphs:
             print(f"  > {q}")
 
-    today = date.today()  # ruff: ignore[call-date-today] - a script
-    requests = [news.search_request(q, today) for q in research.queries]
-    cached = [settings.cache_dir / "tavily" / f"{news.cache_key(r)}.json" for r in requests]
-    if args.record:
+    _save(research, record=args.record, fixture=args.fixture)
+
+
+def _save(research: news.Research, *, record: bool, fixture: str | None) -> None:
+    """Copy this run's cached responses to the recordings and the test fixtures."""
+    cached = [settings.cache_dir / "tavily" / f"{key}.json" for key in research.responses]  # searches, then extract
+    if record:
         news.RECORDED_DIR.mkdir(parents=True, exist_ok=True)
         for path in cached:
             if path.exists():
@@ -66,13 +71,18 @@ async def main() -> None:
                 entry["recorded"] = True
                 (news.RECORDED_DIR / path.name).write_text(json.dumps(entry, indent=1, ensure_ascii=False))
                 print(f"recorded {path.name} (fetched {entry['fetched_on']})")
-    if args.fixture and cached and cached[0].exists():
-        target = FIXTURES / f"tavily_search_{args.fixture}.json"
-        entry = json.loads(cached[0].read_text(encoding="utf-8"))
+    if not fixture:
+        return
+    if not cached or not cached[0].exists():
+        sys.exit("no cached response to save as a fixture")
+    fixtures = [("search", cached[0])]
+    if len(cached) > len(research.queries):  # the extract answer comes last
+        fixtures.append(("extract", cached[-1]))
+    for kind, path in fixtures:
+        target = FIXTURES / f"tavily_{kind}_{fixture}.json"
+        entry = json.loads(path.read_text(encoding="utf-8"))
         target.write_text(json.dumps(entry["response"], indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"fixture {target} (fetched {entry['fetched_on']})")
-    elif args.fixture:
-        sys.exit("no cached response to save as a fixture")
 
 
 if __name__ == "__main__":

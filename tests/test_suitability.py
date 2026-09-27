@@ -274,6 +274,59 @@ def _tavily_client(status: int = 200, calls: list[str] | None = None) -> httpx.A
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
+def _client_with_extract(extract: httpx.Response, paths: list[str]) -> httpx.AsyncClient:
+    """Search answers one UK result without page text; Extract answers with `extract`."""
+    no_text = {
+        "title": "Dorking battery plan",
+        "url": "https://www.example.co.uk/news/no-text",
+        "content": "x",
+        "score": 0.7,
+        "raw_content": None,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/extract":
+            return extract
+        return httpx.Response(200, json={**_tavily_body(), "results": [no_text]})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.anyio
+async def test_uk_results_without_text_are_fetched_with_extract(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    body = {
+        "results": [
+            {"url": "https://www.example.co.uk/news/no-text", "title": "t", "raw_content": PAGE_TEXT, "images": []}
+        ],
+        "failed_results": [],
+        "response_time": 1.0,
+        "usage": {"credits": 1},
+        "request_id": "test",
+    }
+    paths: list[str] = []
+    research = await research_local_news(
+        DORKING, client=_client_with_extract(httpx.Response(200, json=body), paths), today=date(2026, 9, 27)
+    )
+    assert paths.count("/extract") == 1  # one call for every page without text
+    assert research.extracted == 1
+    assert research.credits == len(research.queries) + 1
+    assert len(research.responses) == len(research.queries) + 1  # --record copies the extract answer too
+    assert [str(s.url) for s in research.sources] == ["https://www.example.co.uk/news/no-text"]
+    assert all(verbatim(q, PAGE_TEXT) for q in research.sources[0].paragraphs)
+
+
+@pytest.mark.anyio
+async def test_a_failed_extract_leaves_the_search_results(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    boom = httpx.Response(500, json={"detail": {"error": "boom"}})
+    research = await research_local_news(DORKING, client=_client_with_extract(boom, []), today=date(2026, 9, 27))
+    assert research.status == "searched"
+    assert research.extracted == 0
+    assert not research.sources
+
+
 def test_news_queries_come_from_location_data():
     queries = news_queries(DORKING)
     assert 1 <= len(queries) <= 4

@@ -9,6 +9,8 @@ Notes:
   is only a short, query-dependent snippet.
 - ``country`` boosts results from that country and works only with ``topic="general"``.
 - ``search_depth="basic"`` costs 1 credit and ``"advanced"`` 2; ``include_usage`` reports the credits used.
+- ``POST /extract`` fetches the text of given URLs (up to 20): 1 credit per 5 successful URLs at basic depth,
+  billed in blocks (a single failed URL was billed 1 credit). Unreachable URLs come back in ``failed_results``.
 - Errors are non-2xx with ``{"detail": {"error": "..."}}`` -> ``ErrorResponse``: 400 bad request, 401 bad key,
   429 rate limit, 432 / 433 plan or pay-as-you-go limit.
 - ``published_date`` comes back only with ``include_published_date``, as an RFC 2822 string
@@ -70,6 +72,23 @@ class SearchRequest(ApiRequest):
     include_usage: bool | None = None
 
 
+class ExtractRequest(ApiRequest):
+    """POST /extract — the JSON body. ``params()`` gives the body to send."""
+
+    URL: ClassVar[str] = f"{BASE_URL}/extract"
+    METHOD: ClassVar[str] = "POST"
+
+    urls: list[str] = Field(min_length=1, max_length=20)
+    query: str | None = None  # reranks chunks by relevance
+    chunks_per_source: int | None = Field(default=None, ge=1, le=5)  # with `query`
+    extract_depth: Literal["basic", "advanced"] | None = None  # server default "basic"
+    format: Literal["markdown", "text"] | None = None  # server default "markdown"
+    include_images: bool | None = None
+    include_favicon: bool | None = None
+    timeout: float | None = Field(default=None, ge=1, le=60)  # seconds
+    include_usage: bool | None = None
+
+
 # ----------------------------------------- 2. Response ------------------------------------------ #
 
 
@@ -82,6 +101,16 @@ class SearchResponse(ApiResponse):
     images: list[Image | str] = Field(default_factory=list)
     results: list[SearchResult] = Field(default_factory=list)
     auto_parameters: dict[str, object] | None = None
+    response_time: float | None = None  # seconds
+    usage: Usage | None = None  # with include_usage
+    request_id: str | None = None
+
+
+class ExtractResponse(ApiResponse):
+    """200 from POST /extract (also when every URL failed)."""
+
+    results: list[ExtractResult] = Field(default_factory=list)
+    failed_results: list[FailedResult] = Field(default_factory=list)
     response_time: float | None = None  # seconds
     usage: Usage | None = None  # with include_usage
     request_id: str | None = None
@@ -110,6 +139,23 @@ class SearchResult(ApiResponse):
     images: list[Image | str] | None = None
 
 
+class ExtractResult(ApiResponse):
+    """One fetched page."""
+
+    url: str
+    title: str | None = None  # returned, though not in the docs
+    raw_content: str
+    images: list[Image | str] = Field(default_factory=list)
+    favicon: str | None = None
+
+
+class FailedResult(ApiResponse):
+    """A URL that could not be fetched, e.g. ``"Failed to fetch url"``, ``"Request timed out"``."""
+
+    url: str
+    error: str
+
+
 class Image(ApiResponse):
     """An image; plain URLs unless include_image_descriptions."""
 
@@ -130,4 +176,5 @@ class ErrorDetail(ApiResponse):
 
 
 SearchResponse.model_rebuild()
+ExtractResponse.model_rebuild()
 ErrorResponse.model_rebuild()

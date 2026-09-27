@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from bessible.api import tavily
-from bessible.suitability.research import search_request
+from bessible.suitability.research import extract_request, search_request
 
 FIX = Path(__file__).parent / "fixtures"
 DORKING = FIX / "tavily_search_dorking.json"  # recorded with scripts/news_research.py --fixture dorking
@@ -62,3 +62,32 @@ def test_unknown_request_field_is_our_bug():
 def test_error_body():
     assert tavily.ErrorResponse.model_validate({"detail": {"error": "Unauthorized: missing or invalid API key."}})
     assert tavily.auth_headers("tvly-x") == {"Authorization": "Bearer tvly-x"}
+
+
+HISTON_EXTRACT = FIX / "tavily_extract_histon.json"  # recorded with scripts/news_research.py --fixture histon
+
+
+@pytest.mark.skipif(
+    not HISTON_EXTRACT.exists(),
+    reason="record it: uv run python scripts/news_research.py 52.244997 0.108173 --fixture histon",
+)
+def test_extract_response_parses_a_recorded_response():
+    r = tavily.ExtractResponse.model_validate(json.loads(HISTON_EXTRACT.read_text()))
+    assert r.results
+    assert all(res.url.startswith("http") and res.raw_content for res in r.results)
+    assert r.usage is not None
+
+
+def test_extract_body_is_what_the_stage_sends():
+    body = extract_request(["https://www.example.co.uk/a"]).params()
+    assert body == {
+        "urls": ["https://www.example.co.uk/a"],
+        "extract_depth": "basic",
+        "format": "text",
+        "include_usage": True,
+    }
+
+
+def test_failed_extract_urls():
+    body = {"results": [], "failed_results": [{"url": "https://x.invalid/", "error": "Failed to fetch url"}]}
+    assert tavily.ExtractResponse.model_validate(body).failed_results[0].error == "Failed to fetch url"

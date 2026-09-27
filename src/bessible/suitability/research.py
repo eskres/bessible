@@ -1,7 +1,8 @@
 """Local news research: Tavily finds UK coverage near the site; quotes are verbatim paragraphs of the fetched pages.
 
 1. `news_queries` builds a handful of queries from the site's `LocationData` (place names, council).
-2. Each query goes to the Tavily Search API with the page text (`include_raw_content`). Responses are cached under
+2. Each query goes to the Tavily Search API with the page text (`include_raw_content`). UK results that came back
+   without text are fetched with the Extract API (1 credit per 5 pages). Responses are cached under
    `settings.cache_dir` (gitignored), keyed by the request and dated. A recorded response under
    `data/recorded/tavily/` (same key, `"recorded": true`) serves the offline demo.
 3. Paragraphs are cut from the page text. The run's model may only *select* among them; a pick that is not in the
@@ -28,6 +29,7 @@ from pydantic import BaseModel, Field, HttpUrl, ValidationError
 from pydantic_ai import Agent, UsageLimits
 
 from bessible.api import tavily
+from bessible.api.base import ApiResponse
 from bessible.config import settings
 from bessible.security import REDACTED, sanitize_untrusted_text
 
@@ -40,7 +42,9 @@ log = logging.getLogger(__name__)
 
 MAX_QUERIES = 4
 RESULTS_PER_QUERY = 5  # basic depth: 1 credit per query whatever the count
-MAX_PAGES = 8  # pages read after merging the queries, best Tavily score first
+MAX_PAGES = 10  # pages read after merging the queries, best Tavily score first
+MAX_EXTRACT = 5  # UK results without text to fetch: 5 successful pages cost 1 credit
+MAX_PAGE_TEXT = 200_000  # characters; longer texts are books and reports (e.g. a national database), not coverage
 MAX_CANDIDATES_PER_PAGE = 25  # paragraphs per page offered to the selector
 MAX_QUOTES_PER_PAGE = 4
 MIN_PARAGRAPH, MAX_PARAGRAPH = 60, 1500  # characters
@@ -106,6 +110,8 @@ class Research(BaseModel):
     recorded: bool = False  # a committed recording answered (the offline demo)
     selected_by: str | None = None  # model that picked the paragraphs, or KEYWORD_SELECTOR
     dropped: int = 0  # model picks not found verbatim in the page text
+    extracted: int = 0  # pages whose text came from the Extract API (Search returned none)
+    responses: list[str] = Field(default_factory=list)  # cache keys of every Tavily response used
 
 
 # ------------------------------------------- queries -------------------------------------------- #
@@ -121,7 +127,7 @@ def news_queries(location: LocationData) -> list[str]:
     if place:
         queries += [
             f"{place} battery storage BESS planning application",
-            f"{place} battery energy storage objections residents",
+            " ".join(w for w in (place, where.county, "solar farm battery storage residents concerns") if w),
         ]
     if council and council != place:
         queries.append(f"{council} council battery energy storage planning application")
@@ -156,34 +162,43 @@ def search_request(query: str, today: date) -> tavily.SearchRequest:
 # -------------------------------------------- cache --------------------------------------------- #
 
 
-class _Answer(BaseModel):
-    response: tavily.SearchResponse
+type _Request = tavily.SearchRequest | tavily.ExtractRequest
+
+
+class _Answer[R: ApiResponse](BaseModel):
+    response: R
+    key: str  # cache_key of the request
     fetched_on: date
     recorded: bool = False
     live: bool = False
 
 
-def cache_key(req: tavily.SearchRequest) -> str:
+def extract_request(urls: list[str]) -> tavily.ExtractRequest:
+    """The page text of search results that came back without it."""
+    return tavily.ExtractRequest(urls=urls, extract_depth="basic", format="text", include_usage=True)
+
+
+def cache_key(req: _Request) -> str:
     """File name for a request's cached / recorded response: a hash of the whole body."""
     return hashlib.sha256(json.dumps(req.params(), sort_keys=True).encode()).hexdigest()[:24]
 
 
-def _read(path: Path, *, max_age_days: int | None, today: date) -> _Answer | None:
+def _read[R: ApiResponse](path: Path, schema: type[R], *, max_age_days: int | None, today: date) -> _Answer[R] | None:
     if not path.exists():
         return None
     try:
         entry = json.loads(path.read_text(encoding="utf-8"))
         fetched = date.fromisoformat(entry["fetched_on"])
-        response = tavily.SearchResponse.model_validate(entry["response"])
+        response = schema.model_validate(entry["response"])
     except (OSError, ValueError, KeyError, ValidationError) as e:
         log.warning("Ignoring unreadable Tavily cache entry %s: %s", path, e)
         return None
     if max_age_days is not None and (today - fetched).days > max_age_days:
         return None
-    return _Answer(response=response, fetched_on=fetched, recorded=bool(entry.get("recorded")))
+    return _Answer[R](response=response, key=path.stem, fetched_on=fetched, recorded=bool(entry.get("recorded")))
 
 
-def _write(req: tavily.SearchRequest, body: dict[str, Any], today: date) -> None:
+def _write(req: _Request, body: dict[str, Any], today: date) -> None:
     path = settings.cache_dir / "tavily" / f"{cache_key(req)}.json"
     entry = {"fetched_on": today.isoformat(), "recorded": False, "request": req.params(), "response": body}
     try:
@@ -193,7 +208,7 @@ def _write(req: tavily.SearchRequest, body: dict[str, Any], today: date) -> None
         log.warning("Could not cache Tavily response: %s", e)
 
 
-async def _post(client: httpx.AsyncClient, req: tavily.SearchRequest, api_key: str) -> Any:  # ruff: ignore[any-type]
+async def _post(client: httpx.AsyncClient, req: _Request, api_key: str) -> Any:  # ruff: ignore[any-type]
     """The JSON body of a 200; anything else raises with Tavily's error message."""
     r = await client.post(req.URL, json=req.params(), headers=tavily.auth_headers(api_key), timeout=SEARCH_TIMEOUT_S)
     if r.status_code != httpx.codes.OK:
@@ -206,29 +221,30 @@ async def _post(client: httpx.AsyncClient, req: tavily.SearchRequest, api_key: s
     return r.json()
 
 
-async def _search(
-    client: httpx.AsyncClient, req: tavily.SearchRequest, api_key: str | None, today: date
-) -> _Answer | None:
+async def _search[R: ApiResponse](
+    client: httpx.AsyncClient, req: _Request, schema: type[R], api_key: str | None, today: date
+) -> _Answer[R] | None:
     """Fresh cache, else live (with a key), else a recording. None when there is no key and nothing stored.
 
     Raises on a live failure with no recording to fall back on.
     """
     key = cache_key(req)
-    if hit := _read(settings.cache_dir / "tavily" / f"{key}.json", max_age_days=CACHE_MAX_AGE_DAYS, today=today):
+    cached = settings.cache_dir / "tavily" / f"{key}.json"
+    if hit := _read(cached, schema, max_age_days=CACHE_MAX_AGE_DAYS, today=today):
         return hit
-    recorded = _read(RECORDED_DIR / f"{key}.json", max_age_days=None, today=today)
+    recorded = _read(RECORDED_DIR / f"{key}.json", schema, max_age_days=None, today=today)
     if api_key is None:
         return recorded
     try:
         body = await _post(client, req, api_key)
-        response = tavily.SearchResponse.model_validate(body)
+        response = schema.model_validate(body)
     except Exception:
         if recorded is not None:
             log.warning("Live Tavily search failed; using the recording from %s", recorded.fetched_on, exc_info=True)
             return recorded
         raise
     _write(req, body, today)
-    return _Answer(response=response, fetched_on=today, live=True)
+    return _Answer[R](response=response, key=key, fetched_on=today, live=True)
 
 
 # ------------------------------------------ paragraphs ------------------------------------------ #
@@ -283,20 +299,47 @@ class _Page(BaseModel):
     title: str
     published: date | None
     text: str  # raw page text as Tavily fetched it
+    extracted: bool = False  # the text came from the Extract API
     candidates: list[str]  # energy paragraphs, verbatim (whitespace normalised)
 
 
-def _pages(answers: list[_Answer], names: list[str]) -> list[_Page]:
-    best: dict[str, tuple[float, tavily.SearchResult]] = {}
+def _missing_text(answers: list[_Answer[tavily.SearchResponse]]) -> list[str]:
+    """UK results that came back without page text, best score first (their text decides whether they are local)."""
+    results = sorted((r for a in answers for r in a.response.results), key=lambda r: -r.score)
+    urls = (r.url for r in results if not r.raw_content and is_uk(r.url))
+    return list(dict.fromkeys(urls))[:MAX_EXTRACT]
+
+
+async def _extract(
+    client: httpx.AsyncClient, urls: list[str], api_key: str | None, today: date
+) -> _Answer[tavily.ExtractResponse] | None:
+    """The Extract answer for `urls`, or None when there are none or it failed (the search results still stand)."""
+    if not urls:
+        return None
+    try:
+        fetched = await _search(client, extract_request(urls), tavily.ExtractResponse, api_key, today)
+    except Exception as e:
+        log.warning("Tavily extract failed: %s: %s", type(e).__name__, e)
+        return None
+    for failed in fetched.response.failed_results if fetched else []:
+        log.info("Tavily could not extract %s: %s", failed.url, failed.error)
+    return fetched
+
+
+def _pages(
+    answers: list[_Answer[tavily.SearchResponse]], names: list[str], extracted: dict[str, str] | None = None
+) -> list[_Page]:
+    extracted = extracted or {}
+    best: dict[str, tuple[tavily.SearchResult, str]] = {}  # url -> (best-scored result, page text)
     for a in answers:
         for r in a.response.results:
-            if not r.raw_content or not is_local(r.url, r.raw_content, names):
+            text = r.raw_content or extracted.get(r.url)
+            if not text or len(text) > MAX_PAGE_TEXT or not is_local(r.url, text, names):
                 continue
-            if r.url not in best or r.score > best[r.url][0]:
-                best[r.url] = (r.score, r)
+            if r.url not in best or r.score > best[r.url][0].score:
+                best[r.url] = (r, text)
     pages: list[_Page] = []
-    for _, r in sorted(best.values(), key=lambda s: -s[0])[:MAX_PAGES]:
-        text = r.raw_content or ""
+    for r, text in sorted(best.values(), key=lambda b: -b[0].score)[:MAX_PAGES]:
         candidates = []
         for p in paragraphs_of(text):
             if not ENERGY_WORDS.search(p):
@@ -315,6 +358,7 @@ def _pages(answers: list[_Answer], names: list[str]) -> list[_Page]:
                 title=sanitize_untrusted_text(r.title, max_len=200),
                 published=_published(r.published_date),
                 text=text,
+                extracted=not r.raw_content,
                 candidates=candidates[:MAX_CANDIDATES_PER_PAGE],
             )
         )
@@ -340,7 +384,8 @@ class Selection(BaseModel):
 SELECTOR_INSTRUCTIONS = """\
 You pick paragraphs from UK news and council pages for a planning analyst.
 Keep a paragraph only if it is about an energy project (battery storage / BESS, solar farm, substation, grid \
-connection) at or near the named site area, or local reaction to one: objections, support, council decisions.
+connection) within about 10 km of the named site area, or local reaction to one: objections, support, council \
+decisions. A project in a neighbouring town or village counts; one elsewhere in the county does not.
 Drop paragraphs about other areas, national policy in general, adverts and site furniture.
 Copy each paragraph exactly as given, character for character. Never shorten, merge, fix or paraphrase.
 At most {per_page} paragraphs per article; none is fine.
@@ -425,7 +470,9 @@ async def research_local_news(
 
     api_key = settings.tavily_api_key.get_secret_value() if settings.tavily_api_key else None
     requests = [search_request(q, today) for q in queries]
-    got = await asyncio.gather(*(_search(client, r, api_key, today) for r in requests), return_exceptions=True)
+    got = await asyncio.gather(
+        *(_search(client, r, tavily.SearchResponse, api_key, today) for r in requests), return_exceptions=True
+    )
     answers = [a for a in got if isinstance(a, _Answer)]
     errors = [e for e in got if isinstance(e, BaseException)]
     if fatal := next((e for e in errors if not isinstance(e, Exception)), None):
@@ -445,15 +492,21 @@ async def research_local_news(
     if errors:  # some queries answered: report what they found, but say the search was partial
         research.retryable = True
 
+    fetched = await _extract(client, _missing_text(answers), api_key, today)
+    used: list[_Answer[Any]] = [*answers, *([fetched] if fetched else [])]
+    extracted = {r.url: r.raw_content for r in fetched.response.results if r.raw_content} if fetched else {}
+
     research.results = sum(len(a.response.results) for a in answers)
-    research.credits = sum(a.response.usage.credits for a in answers if a.live and a.response.usage)
-    research.cached = not any(a.live for a in answers)
-    research.recorded = any(a.recorded for a in answers)
-    stored = [a.fetched_on for a in answers if not a.live]
+    research.credits = sum(a.response.usage.credits for a in used if a.live and a.response.usage)
+    research.cached = not any(a.live for a in used)
+    research.recorded = any(a.recorded for a in used)
+    research.responses = [a.key for a in used]
+    stored = [a.fetched_on for a in used if not a.live]
     research.fetched_on = min(stored) if stored else None
 
     names = [w for w in (place, lpa) if w]
-    pages = _pages(answers, names)
+    pages = _pages(answers, names, extracted)
+    research.extracted = sum(1 for page in pages if page.extracted)
     research.pages_read = len(pages)
     picked: dict[int, list[str]] | None = None
     if model is not None and any(p.candidates for p in pages):
