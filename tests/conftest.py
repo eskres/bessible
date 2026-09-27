@@ -61,6 +61,7 @@ def offline_news(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(settings, "tavily_api_key", None)
     monkeypatch.setattr(settings, "cache_dir", tmp_path / "cache")
     monkeypatch.setattr("bessible.suitability.research.RECORDED_DIR", tmp_path / "recorded")
+    monkeypatch.setattr("bessible.suitability.stored.RECORDED_ROOT", tmp_path / "recorded")
 
     async def fake(coords: Coordinates, **_kwargs: object) -> LocationData:
         where = Locality(place="Dorking", district="Mole Valley", planning_authority="Mole Valley", county="Surrey")

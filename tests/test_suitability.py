@@ -11,6 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from bessible import classifier
 from bessible.classifier import Classified, _classify_heuristic
 from bessible.config import settings
 from bessible.location import Agentic, Coordinates, Deterministic, Locality, LocationData
@@ -41,6 +42,7 @@ from bessible.suitability.finance import evaluate
 from bessible.suitability.labels import COMMUNITY, DEVELOPER, REPORTER, ParagraphLabels
 from bessible.suitability.research import (
     KEYWORD_SELECTOR,
+    Source,
     cache_key,
     is_local,
     news_queries,
@@ -497,6 +499,36 @@ async def test_model_pick_not_in_page_text_is_dropped(monkeypatch: pytest.Monkey
     assert research.sources[0].paragraphs == [real]
     assert research.selected_by is not None
     assert research.selected_by != KEYWORD_SELECTOR
+
+    # A replay of the same pages with no model reuses the stored picks: same quotes, same picker.
+    again = await research_local_news(DORKING, client=_tavily_client())
+    assert again.sources == research.sources
+    assert again.selected_by == research.selected_by
+    assert again.selection_key == research.selection_key
+
+
+@pytest.mark.anyio
+async def test_stored_labels_make_replays_stable():
+    from pydantic_ai.models.test import TestModel
+
+    from bessible.suitability.sentiment import classify_source
+
+    source = Source(url="https://www.example.co.uk/a", title="t", paragraphs=["Residents object to the battery site."])
+    first = await classify_source(source)  # no model: the keyword heuristic, stored
+    assert first[0].model == classifier.HEURISTIC_NAME
+    labels = {
+        "relevant": True,
+        "voice": DEVELOPER,
+        "stance": "supportive",
+        "concern": "no concern raised",
+        "mentions_risk": False,
+    }
+    conf = dict.fromkeys(labels, 0.9)
+    model = TestModel(custom_output_args={"rows": [{"index": 0, "labels": labels, "confidence": conf}]})
+    second = await classify_source(source, model)  # a model relabels stored heuristic labels
+    assert second[0].labels.voice == DEVELOPER
+    third = await classify_source(source)  # and its labels are replayed, with no model
+    assert third == second
 
 
 @pytest.mark.anyio

@@ -8,7 +8,8 @@
    `settings.cache_dir` (gitignored), keyed by the request and dated. A recorded response under
    `data/recorded/tavily/` (same key, `"recorded": true`) serves the offline demo.
 3. Paragraphs are cut from the page text. The run's model may only *select* among them; a pick that is not in the
-   fetched text (whitespace aside) is dropped and logged. With no model (or if it fails), keyword rules select.
+   fetched text (whitespace aside) is dropped and logged. The selection is stored by prompt (`stored`), so a replay
+   of the same pages picks the same paragraphs, even with no model. With neither, keyword rules select.
 
 `Research.unavailable` says why no search answered (not configured, or failed); it is None when one did.
 """
@@ -34,6 +35,7 @@ from bessible.api import tavily
 from bessible.api.base import ApiResponse
 from bessible.config import settings
 from bessible.security import REDACTED, sanitize_untrusted_text
+from bessible.suitability import stored
 
 if TYPE_CHECKING:
     from pydantic_ai.models import Model
@@ -117,6 +119,7 @@ class Research(BaseModel):
     dropped: int = 0  # model picks not found verbatim in the page text
     extracted: int = 0  # pages whose text came from the Extract API (Search returned none)
     responses: list[str] = Field(default_factory=list)  # cache keys of every Tavily response used
+    selection_key: str | None = None  # `stored` key of the paragraph selection, when a model made one
 
 
 # ------------------------------------------- queries -------------------------------------------- #
@@ -459,15 +462,35 @@ def _by_keywords(pages: list[_Page], place_words: list[str]) -> dict[int, list[s
     return out
 
 
+class Selected(BaseModel):
+    """The verified picks per article, how many picks were dropped, who picked, and the stored key."""
+
+    kept: dict[int, list[str]]
+    dropped: int
+    model: str
+    key: str
+
+
 async def select_paragraphs(
-    pages: list[_Page], place: str, lpa: str | None, model: Model, county: str | None = None
-) -> tuple[dict[int, list[str]], int]:
-    """The model's picks that appear verbatim in their page's fetched text, and how many picks were dropped."""
+    pages: list[_Page], place: str, lpa: str | None, model: Model | None, county: str | None = None
+) -> Selected | None:
+    """The picks that appear verbatim in their page's fetched text: stored ones for this prompt, else the model's.
+
+    None when nothing is stored and there is no model. Stored picks are checked against the page text again.
+    """
     prompt = _prompt(pages, place, lpa, county)
-    run = await selector_agent.run(prompt, model=model, usage_limits=RESEARCH_USAGE_LIMITS)
+    key = stored.key("selection", SELECTOR_INSTRUCTIONS, prompt)
+    if entry := stored.load("selections", key):
+        selection, by = Selection.model_validate(entry["output"]), str(entry["model"])
+    elif model is None:
+        return None
+    else:
+        run = await selector_agent.run(prompt, model=model, usage_limits=RESEARCH_USAGE_LIMITS)
+        selection, by = run.output, model.model_name
+        stored.save("selections", key, {"model": by, "output": selection.model_dump()})
     kept: dict[int, list[str]] = {}
     dropped = 0
-    for pick in run.output.picks:
+    for pick in selection.picks:
         page = pages[pick.article] if 0 <= pick.article < len(pages) else None
         if page is None or not verbatim(pick.quote, page.text):
             dropped += 1
@@ -478,7 +501,7 @@ async def select_paragraphs(
         q = normalise(pick.quote)
         if q not in quotes and len(quotes) < MAX_QUOTES_PER_PAGE:
             quotes.append(q)
-    return kept, dropped
+    return Selected(kept=kept, dropped=dropped, model=by, key=key)
 
 
 # ------------------------------------------- research ------------------------------------------- #
@@ -549,10 +572,11 @@ async def research_local_news(
     research.extracted = sum(1 for page in pages if page.extracted)
     research.pages_read = len(pages)
     picked: dict[int, list[str]] | None = None
-    if model is not None and any(p.candidates for p in pages):
+    if any(p.candidates for p in pages):
         try:
-            picked, research.dropped = await select_paragraphs(pages, place, lpa, model, county)
-            research.selected_by = model.model_name
+            if selected := await select_paragraphs(pages, place, lpa, model, county):
+                picked, research.dropped = selected.kept, selected.dropped
+                research.selected_by, research.selection_key = selected.model, selected.key
         except Exception as e:  # fall back to keyword rules, and say so
             log.warning("News paragraph selection failed (%s: %s); using keyword rules", type(e).__name__, e)
     if picked is None:

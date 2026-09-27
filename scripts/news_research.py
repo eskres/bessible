@@ -3,7 +3,7 @@
     uv run python scripts/news_research.py <lat> <lon> [--model] [--record] [--fixture NAME]
 
 --model     select paragraphs and label them with your Gemini key (GOOGLE_API_KEY), as a run would
---record    copy this run's Tavily responses (searches and extract) to data/recorded/tavily/ (serves the offline demo)
+--record    copy this run's Tavily responses, paragraph picks and labels to data/recorded/ (serves the offline demo)
 --fixture   save the first query's raw response as tests/api/fixtures/tavily_search_<NAME>.json, and the extract
             response (if any) as tavily_extract_<NAME>.json
 
@@ -20,7 +20,8 @@ import sys
 from bessible.config import settings
 from bessible.location import Coordinates, locality
 from bessible.suitability import research as news
-from bessible.suitability.sentiment import process_sentiment
+from bessible.suitability import stored
+from bessible.suitability.sentiment import label_key, process_sentiment
 
 FIXTURES = settings.data_dir.parent / "tests" / "api" / "fixtures"
 
@@ -71,6 +72,10 @@ def _save(research: news.Research, *, record: bool, fixture: str | None) -> None
                 entry["recorded"] = True
                 (news.RECORDED_DIR / path.name).write_text(json.dumps(entry, indent=1, ensure_ascii=False))
                 print(f"recorded {path.name} (fetched {entry['fetched_on']})")
+        keys = [label_key(p) for s in research.sources for p in s.paragraphs]
+        labels = sum(stored.record("labels", k) for k in dict.fromkeys(keys))
+        picks = research.selection_key is not None and stored.record("selections", research.selection_key)
+        print(f"recorded {labels} paragraph labels and {'the' if picks else 'no'} paragraph selection")
     if not fixture:
         return
     if not cached or not cached[0].exists():

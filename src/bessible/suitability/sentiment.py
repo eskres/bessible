@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING
 
 from pydantic import HttpUrl
 
-from bessible.classifier import Classified, classify
+from bessible.classifier import HEURISTIC_NAME, Classified, classify
 from bessible.models import Artifact, DataGap, SentimentOutput
 from bessible.security import sanitize_untrusted_text
+from bessible.suitability import stored
 from bessible.suitability.labels import DEVELOPER, NO_CONCERN, ParagraphLabels
 from bessible.suitability.research import Research, Source
 
@@ -82,10 +83,25 @@ async def classify_source(source: Source, model: Model | None = None) -> list[Cl
     Not Modal: on 22 real news paragraphs plus 4 written complaints (2026-09-27), the Modal classifier labelled
     none of the complaints "against" and called 21 of 26 paragraphs the developer's; Gemini got 4 of 4 and 12 of 26
     (all correct). Modal still cross-checks the policy quotes.
+
+    Labels are stored per paragraph (`stored`), so a replay labels the same text the same way, even with no model.
+    Stored keyword-heuristic labels are relabelled when a model is available.
     """
-    if not source.paragraphs:
-        return []
-    return await classify(source.paragraphs, ParagraphLabels, model=model, backends=("llm", "heuristic"))
+    found: dict[str, Classified[ParagraphLabels]] = {}
+    for text in dict.fromkeys(source.paragraphs):
+        entry = stored.load("labels", label_key(text))
+        if entry and not (model is not None and entry.get("model") == HEURISTIC_NAME):
+            found[text] = Classified[ParagraphLabels].model_validate(entry)
+    missing = [t for t in dict.fromkeys(source.paragraphs) if t not in found]
+    for item in await classify(missing, ParagraphLabels, model=model, backends=("llm", "heuristic")):
+        stored.save("labels", label_key(item.text), item.model_dump(mode="json"))
+        found[item.text] = item
+    return [found[t] for t in source.paragraphs]
+
+
+def label_key(text: str) -> str:
+    """`stored` key of one paragraph's labels: its text and the label schema (a new question starts afresh)."""
+    return stored.key("labels", ParagraphLabels.model_json_schema(), text)
 
 
 SEARCH_DOCS_URL = HttpUrl("https://docs.tavily.com/documentation/api-reference/endpoint/search")
