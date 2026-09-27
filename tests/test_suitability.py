@@ -330,9 +330,22 @@ async def test_a_failed_extract_leaves_the_search_results(monkeypatch: pytest.Mo
 def test_news_queries_come_from_location_data():
     queries = news_queries(DORKING)
     assert 1 <= len(queries) <= 4
-    assert queries[0].startswith("Dorking ")
-    assert any("Mole Valley" in q for q in queries)
-    assert all(len(q) <= 400 for q in queries)
+    assert queries[0].text.startswith("Dorking ")
+    assert queries[0].scope == "place"
+    assert any(q.scope == "district" and "Mole Valley" in q.text for q in queries)
+    assert all(len(q.text) <= 400 for q in queries)
+
+
+def test_council_queries_cover_the_district_and_the_county():
+    where = DORKING.deterministic.locality.model_copy(update={"county": "Surrey"})
+    location = DORKING.model_copy(
+        update={"deterministic": DORKING.deterministic.model_copy(update={"locality": where})}
+    )
+    queries = news_queries(location)
+    assert [q.scope for q in queries] == ["place", "place", "district", "county"]
+    assert "Surrey county council" in queries[3].text
+    assert queries[0].rule() == "projects within about 10 km of Dorking"
+    assert queries[3].rule() == "projects anywhere in Surrey (county council area)"
 
 
 def test_news_queries_skip_unparished_areas_and_wards_named_after_the_place():
@@ -344,7 +357,7 @@ def test_news_queries_skip_unparished_areas_and_wards_named_after_the_place():
     )
     queries = news_queries(location)
     assert len(queries) == 4
-    assert not any("unparished" in q or "Dorking North" in q for q in queries)
+    assert not any("unparished" in q.text or "Dorking North" in q.text for q in queries)
 
 
 def test_non_uk_hosts_count_only_when_they_name_the_area():
@@ -453,7 +466,7 @@ async def test_recorded_response_serves_the_offline_demo(monkeypatch: pytest.Mon
     recorded_dir = settings.cache_dir.parent / "recorded"
     recorded_dir.mkdir(parents=True)
     for q in news_queries(DORKING):
-        req = search_request(q, today)
+        req = search_request(q.text, today)
         entry = {"fetched_on": "2026-09-20", "recorded": True, "request": req.params(), "response": _tavily_body()}
         (recorded_dir / f"{cache_key(req)}.json").write_text(json.dumps(entry))
     monkeypatch.setattr(research_module, "RECORDED_DIR", recorded_dir)

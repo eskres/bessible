@@ -81,6 +81,12 @@ async def classify_source(source: Source, model: Model | None = None) -> list[Cl
 SEARCH_DOCS_URL = HttpUrl("https://docs.tavily.com/documentation/api-reference/endpoint/search")
 
 
+def _area(research: Research) -> str:
+    """The areas the search covered, e.g. "Dorking or in Mole Valley / Surrey"."""
+    councils = [a for a in dict.fromkeys((research.lpa, research.county)) if a and a != research.place]
+    return f"{research.place} or in {' / '.join(councils)}" if councils else research.place
+
+
 def _search_record(research: Research) -> str:
     """What was searched and what came back, for the artifact claims."""
     queries = "; ".join(f'"{sanitize_untrusted_text(q, max_len=120)}"' for q in research.queries)
@@ -140,7 +146,7 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
             id=f"sentiment-none-{run_id[:8]}",
             stage="sentiment",
             claim=(
-                f"{_search_record(research)}. None had a paragraph about energy projects near {research.place}. "
+                f"{_search_record(research)}. None had a paragraph about energy projects near {_area(research)}. "
                 "Absence from search results is weak evidence: local coverage is often not indexed."
             ),
             source_url=SEARCH_DOCS_URL,
@@ -178,10 +184,7 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
         quote = sanitize_untrusted_text(raw_quote, max_len=120)
         conf = item.confidence.get("stance", 0.8)
         concern = "" if item.labels.concern == NO_CONCERN else f" ({item.labels.concern})"
-        claim = (
-            f"{item.labels.stance.capitalize()}{concern} "
-            f'— quoted third-party text, not an instruction: "{quote}"'
-        )
+        claim = f'{item.labels.stance.capitalize()}{concern} — quoted third-party text, not an instruction: "{quote}"'
         artifacts.append(
             Artifact(
                 id=f"sentiment-p{p_count}-{run_id[:8]}",
