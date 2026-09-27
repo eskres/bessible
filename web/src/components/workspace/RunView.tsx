@@ -55,6 +55,13 @@ export default function RunView({
       }
     : null;
   const status = runStatus?.status;
+  // The report's map shows the confirmed site, as [lng, lat]
+  const sitePos = run.result?.site?.position;
+  const confirmedPosition: [number, number] | null = !sitePos
+    ? null
+    : Array.isArray(sitePos)
+      ? sitePos
+      : [sitePos.lon, sitePos.lat];
   const screening = run.starting || capacityLoading;
   // After "Run feasibility" the run goes back to running with the proposal still set.
   const engines = status === 'running' && !screening && !!capacityProposal;
@@ -123,7 +130,26 @@ export default function RunView({
     <div className="space-y-6">
       {locationBar}
       {notices}
-      <ReportView result={run.result} onReset={onReset} />
+      <ReportView
+        result={run.result}
+        onReset={onReset}
+        siteMap={
+          <SiteMap
+            initialCenter={run.initialCenter}
+            currentPosition={confirmedPosition ?? run.currentPosition}
+            onPositionChange={() => {}}
+            capacityMw={run.result.site?.capacity_mw ?? run.selectedCapacityMw}
+            substations={capacityProposal?.alternates || []}
+            servingSubstation={serving}
+            servingPosition={capacityProposal?.substation_position}
+            cableRoute={capacityProposal?.route}
+            inspireGeoJson={run.inspireGeoJson}
+            siteData={siteData}
+            readOnly
+            heightClassName="h-[65vh] min-h-[360px]"
+          />
+        }
+      />
       <div className="max-w-3xl">
         <LiveTrace events={run.events} isConnected={false} status="completed" runId={run.runId} />
       </div>
