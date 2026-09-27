@@ -288,6 +288,8 @@ class StreamValue(BaseModel):
     cached: bool
     placeholder: bool = False
     scheme: str | None = None
+    method: str | None = None  # how the figure was computed, for the artifact claim
+    period: str | None = None  # the data period it covers
 
 
 class MarketOutput(BaseModel):

@@ -37,6 +37,10 @@ class Assumption(BaseModel):
     date: str = ""
     status: Literal["agreed", "placeholder"] = "agreed"
     used: bool = True
+    source_url: str | None = None
+    quote: str | None = None  # verbatim line or table reference from the source
+    derivation: str | None = None  # the arithmetic, if any
+    note: str | None = None
 
     @model_validator(mode="after")
     def validate_documented(self) -> Assumption:

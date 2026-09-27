@@ -1,9 +1,18 @@
 {
   "stream": "capacity_market",
-  "source": "Capacity Market clearing price (EMR Delivery Body), fixture",
-  "source_url": "https://www.emrdeliverybody.com/",
-  "as_of": "2026-09-19",
-  "status": "placeholder",
-  "note": "PLACEHOLDER price, written 2026-09-19 and not checked against the latest auction results. Value is per unit of de-rated capacity, so it is multiplied by the de-rating factor for the duration.",
-  "gbp_per_mw_year_by_duration": {"2": 60000, "4": 60000, "8": 60000}
+  "source": "Capacity Market T-4 auction for delivery 2029/30 (auction monitor report, Deloitte for DESNZ)",
+  "source_url": "https://assets.publishing.service.gov.uk/media/69b44fd2cf4af9cad362b41c/t-4-2025-delivery-year-2029-2030-auction-monitor-report.pdf",
+  "as_of": "2026-03-12",
+  "status": "agreed",
+  "period": "delivery year 2029/30 (T-4 auction held 10 March 2026)",
+  "method": "clearing price per kW of de-rated capacity x 1,000 kW per MW; the stack then multiplies by the storage de-rating factor for the duration",
+  "quote": "The Clearing Price of the 2025 T-4 Auction was equal to £27.10, with the aggregate Bidding Capacity of Capacity Agreements of 40,108.608 MW. (Deloitte LLP, 12 March 2026)",
+  "derivation": "GBP 27.10/kW/yr x 1,000 = GBP 27,100/MW/yr of de-rated capacity, the same for every duration. Cross-check: NESO 'Capacity Market Auction Capacity and Cost' (resource b1b58919-eaa4-40ea-80df-3d3e526f8223), 2029/2030 row: Forecast Cost GBP 1,086,943,277 / 40,108.608 MW = GBP 27.10/kW.",
+  "note": "Most recent T-1 (delivery 2026/27, held 3-4 March 2026) cleared at £5.00/kW/yr (https://assets.publishing.service.gov.uk/media/69aedeaf6827004e30b8a56e/T-1-2025-for-delivery-2026-27-auction-monitor-report.pdf, Deloitte LLP, 6 March 2026: 'The Clearing Price of the 2025 T-1 Auction was equal to £5.00'). T-4 is used because a new build competes in T-4 for a multi-year agreement. Values are per unit of de-rated capacity; the de-rating factors are in data/assumptions/market.json.",
+  "gbp_per_mw_year_by_duration": {
+    "2": 27100,
+    "4": 27100,
+    "8": 27100
+  },
+  "cross_check": "Modo Energy, \"How does a battery energy storage system make money?\", Neil Weaver, 19 May 2026 (updated 21 May 2026), https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money: \"Over the twelve months to April 2026, the Capacity Market contributed an average of £7,454/MW/year to GB BESS revenue, or roughly 10% of the stack.\" Not the same measure as ours: a fleet average of agreements already held (from earlier, higher-priced auctions), no duration stated; ours is what a new build would get in the 2029/30 T-4 (£27.10/kW x de-rating)."
 }

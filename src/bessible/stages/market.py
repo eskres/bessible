@@ -5,7 +5,7 @@ from __future__ import annotations
 from bessible.market import load_market_assumptions
 from bessible.market.sources import default_sources
 from bessible.market.stack import revenue_stack, total
-from bessible.models import Artifact, MarketOutput, NodeInput
+from bessible.models import Artifact, MarketOutput, NodeInput, StreamValue
 
 
 async def market_revenue(inp: NodeInput) -> MarketOutput:
@@ -30,30 +30,13 @@ async def market_revenue(inp: NodeInput) -> MarketOutput:
                 continue
             seen_streams.add(val.stream)
 
-            if val.scheme:
-                claim = (
-                    f"{val.scheme}: estimated £{val.gbp_per_mw_year:,.0f}/MW/year under {val.scheme} "
-                    f"support scheme (source: {val.source}, as of {val.as_of.isoformat()})"
-                )
-            elif val.cached:
-                claim = (
-                    f"{val.stream.replace('_', ' ').title()}: estimated £{val.gbp_per_mw_year:,.0f}/MW/year "
-                    f"(4h basis) from {val.source} (cached fixture as of {val.as_of.isoformat()})"
-                )
-            else:
-                claim = (
-                    f"{val.stream.replace('_', ' ').title()}: estimated £{val.gbp_per_mw_year:,.0f}/MW/year "
-                    f"(4h basis) from {val.source} as of {val.as_of.isoformat()}"
-                )
-
-            confidence = 0.85 if (val.placeholder or val.cached) else 1.0
             artifacts.append(
                 Artifact(
                     id=f"market-{val.stream}-{inp.run_id[:8]}",
                     stage="market",
-                    claim=claim,
+                    claim=_claim(val, duration_h),
                     source_url=val.source_url,
-                    confidence=confidence,
+                    confidence=_confidence(val),
                     model_used="market-assumptions",
                 )
             )
@@ -64,3 +47,37 @@ async def market_revenue(inp: NodeInput) -> MarketOutput:
         by_duration=stack,
         artifacts=artifacts,
     )
+
+
+# How far the method itself can be trusted, before live/cached/placeholder: a published auction price is exact;
+# arbitrage is a perfect-foresight upper bound; ancillary rests on an estimated participation share.
+METHOD_CONFIDENCE = {"capacity_market": 0.95, "wholesale": 0.7, "balancing_ancillary": 0.6}
+CACHED_PENALTY = 0.1
+PLACEHOLDER_CONFIDENCE = 0.3
+LIVE_STREAMS = {"wholesale", "balancing_ancillary"}  # the rest are committed by design, so "cached" is expected
+
+
+def _confidence(val: StreamValue) -> float:
+    """Confidence from the method, then lowered for a cached snapshot, and floored for a placeholder."""
+    if val.placeholder:
+        return PLACEHOLDER_CONFIDENCE
+    base = METHOD_CONFIDENCE.get(val.stream, 0.8)
+    return round(base - CACHED_PENALTY, 2) if val.cached and val.stream in LIVE_STREAMS else base
+
+
+def _claim(val: StreamValue, duration_h: int) -> str:
+    """Say live or cached, the method, the period covered and the source."""
+    name = val.scheme or val.stream.replace("_", " ").capitalize()
+    if val.stream in LIVE_STREAMS:
+        freshness = f"cached snapshot from {val.as_of.isoformat()} (live source failed)" if val.cached else "live"
+    else:
+        freshness = f"committed data, published {val.as_of.isoformat()}"
+    parts = [f"{name}: £{val.gbp_per_mw_year:,.0f}/MW/year ({duration_h}h basis), {freshness}."]
+    if val.placeholder:
+        parts.append("PLACEHOLDER value.")
+    if val.method:
+        parts.append(f"Method: {val.method}.")
+    if val.period:
+        parts.append(f"Period: {val.period}.")
+    parts.append(f"Source: {val.source}.")
+    return " ".join(parts)

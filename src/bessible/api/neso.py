@@ -22,7 +22,7 @@ for English sites; English embedded projects with TEC appear in the TEC register
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import ClassVar
 
 from pydantic import Field
@@ -191,4 +191,75 @@ def tec_at_sites(sites: list[str], *, storage_only: bool = False, limit: int = 2
     return DatastoreSearchSqlRequest(
         sql=f'SELECT {columns} FROM "{TEC_REGISTER_RESOURCE_ID}" WHERE {where} '  # ruff: ignore[hardcoded-sql-expression] - values are quoted above
         f'ORDER BY "Cumulative Total Capacity (MW)" DESC LIMIT {int(limit)}'
+    )
+
+
+# ------------------------------- Response and reserve auctions (EAC) ------------------------------- #
+
+RESPONSE_RESERVE_PACKAGE = "eac-auction-results"
+"""Enduring Auction Capability results: Dynamic Containment / Moderation / Regulation (DC, DM, DR, each Low and
+High frequency) and the Quick / Slow / Balancing Reserve products. Daily auctions; one row per product per
+delivery window. The current financial year lives in the "NESO Response-Reserve Results Summary" resource;
+each April the past year moves to "NESO Response-Reserve Results Summary FY<yyyy> (Archive)" (FY2025 =
+April 2025 to March 2026, checked against its first and last ``deliveryStart``). Find them with
+``PackageShowRequest(id=RESPONSE_RESERVE_PACKAGE)`` and ``results_summary_resources``."""
+
+RESULTS_SUMMARY_NAME = "NESO Response-Reserve Results Summary"
+
+RESPONSE_PRODUCTS = ("DCL", "DCH", "DML", "DMH", "DRL", "DRH")  # L = low-frequency side, H = high-frequency side
+
+
+class ResponseProductSummary(ApiResponse):
+    """One row of ``response_product_summary``: per-product totals over a delivery window.
+
+    The datastore returns SQL aggregates as strings (e.g. ``"1080"``); pydantic parses them.
+    """
+
+    auction_product: str = Field(alias="auctionProduct")  # e.g. "DCL"
+    windows: int  # number of delivery windows (rows)
+    price_sum: float  # sum of clearingPrice, GBP/MW/h
+    volume_sum: float  # sum of clearedVolume, MW
+    first_start: datetime  # earliest deliveryStart
+    last_end: datetime  # latest deliveryEnd
+    shortest: str  # shortest window, postgres interval text, e.g. "4:00:00"
+    longest: str  # longest window
+
+
+def results_summary_resources(package: ckan.CkanPackage, since: date) -> list[str]:
+    """Ids of the Results Summary resources that can hold windows from `since` on: the current one plus archives.
+
+    Archive names end "FY<yyyy> (Archive)"; FY<yyyy> runs April yyyy to March yyyy+1.
+    """
+    first_fy = since.year if since.month >= 4 else since.year - 1  # ruff: ignore[magic-value-comparison]
+    ids = []
+    for r in package.resources:
+        name = (r.name or "").strip()
+        if name == RESULTS_SUMMARY_NAME:
+            ids.append(r.id)
+        elif name.startswith(RESULTS_SUMMARY_NAME + " FY") and name.endswith("(Archive)"):
+            fy = int(name.removeprefix(RESULTS_SUMMARY_NAME + " FY")[:4])
+            if fy >= first_fy:
+                ids.append(r.id)
+    return ids
+
+
+def response_product_summary(resource_id: str, start: date, end: date) -> DatastoreSearchSqlRequest:
+    """Per-product totals of DC/DM/DR windows starting in [start, end).
+
+    Parse with ``DatastoreSearchSqlResponse[ResponseProductSummary]``.
+
+    NESO blocks SQL functions (EXTRACT, ...) but allows aggregates and interval arithmetic, so the window
+    lengths come back as ``shortest``/``longest`` for the caller to check.
+    """
+    products = ", ".join(f"'{p}'" for p in RESPONSE_PRODUCTS)
+    return DatastoreSearchSqlRequest(
+        sql=(
+            'SELECT "auctionProduct", COUNT(*) AS windows, SUM("clearingPrice") AS price_sum, '  # ruff: ignore[hardcoded-sql-expression] - dates are typed
+            'SUM("clearedVolume") AS volume_sum, MIN("deliveryStart") AS first_start, '
+            'MAX("deliveryEnd") AS last_end, MIN("deliveryEnd" - "deliveryStart") AS shortest, '
+            'MAX("deliveryEnd" - "deliveryStart") AS longest '
+            f'FROM "{resource_id}" WHERE "auctionProduct" IN ({products}) '
+            f"AND \"deliveryStart\" >= '{start.isoformat()}' AND \"deliveryStart\" < '{end.isoformat()}' "
+            'GROUP BY "auctionProduct"'
+        )
     )

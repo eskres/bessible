@@ -165,3 +165,38 @@ def test_tec_at_sites():
     rows = DatastoreSearchSqlResponse[neso.TecRegisterRecord].model_validate(body).result.records
     assert {r.connection_site.split()[0] for r in rows} == {"Bolney", "West"}
     assert rows[0].cumulative_total_capacity_mw == max(r.cumulative_total_capacity_mw for r in rows)
+
+
+def test_package_show_eac_results_summary_resources():
+    r = PackageShowResponse.model_validate(load("neso_package_show_eac.json"))
+    assert r.result.name == neso.RESPONSE_RESERVE_PACKAGE
+    # Window from 27 Sep 2025: the current summary plus the FY2025 archive (Apr 2025 - Mar 2026), not FY2024
+    assert neso.results_summary_resources(r.result, date(2025, 9, 27)) == [
+        "596f29ac-0387-4ba4-a6d3-95c243140707",
+        "be55ee51-b79e-47da-b71e-a0f8865d9d66",
+    ]
+    assert len(neso.results_summary_resources(r.result, date(2024, 9, 27))) == 3  # FY2024 archive too
+
+
+def test_response_product_summary_sql():
+    req = neso.response_product_summary("abc", date(2025, 9, 26), date(2026, 9, 26))
+    assert 'FROM "abc"' in req.sql
+    assert "\"deliveryStart\" >= '2025-09-26'" in req.sql
+    assert "'DCL', 'DCH', 'DML', 'DMH', 'DRL', 'DRH'" in req.sql
+
+
+def test_response_product_summary_response():
+    r = DatastoreSearchSqlResponse[neso.ResponseProductSummary].model_validate(
+        load("neso_response_summary_fy2025.json")
+    )
+    rows = {x.auction_product: x for x in r.result.records}
+    assert set(rows) == set(neso.RESPONSE_PRODUCTS)
+    dml = rows["DML"]
+    assert dml.windows == 1121
+    assert dml.price_sum == 6649.73
+    assert dml.volume_sum == 569138
+    assert dml.first_start.isoformat() == "2025-09-26T02:00:00"  # naive, as the datastore returns it
+    assert dml.last_end.isoformat() == "2026-03-31T22:00:00"
+    # EFA blocks are 4 h; clock-change days make one 3 h and one 5 h block
+    assert (dml.shortest, dml.longest) == ("3:00:00", "5:00:00")
+    assert rows["DRH"].price_sum < 0  # regulation high cleared below zero on average

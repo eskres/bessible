@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, HttpUrl
 
 from bessible.assumptions import FIXTURES_DIR
+from bessible.market import load_market_assumptions
+from bessible.market.live import ElexonArbitrageSource, NesoResponseSource
 from bessible.models import StreamValue
 
 if TYPE_CHECKING:
@@ -40,6 +42,11 @@ class Fixture(BaseModel):
     as_of: date
     status: str = "agreed"
     note: str = ""
+    period: str | None = None  # data period the figure covers
+    method: str | None = None
+    quote: str | None = None  # verbatim line or table reference from the source
+    derivation: str | None = None  # the arithmetic, if any
+    cross_check: str | None = None  # an outside figure to compare against, never used in the stack
     gbp_per_mw_year_by_duration: dict[str, float]
 
 
@@ -62,6 +69,8 @@ class FixtureSource:
             as_of=fixture.as_of,
             cached=True,
             placeholder=fixture.status == "placeholder",
+            method=fixture.method,
+            period=fixture.period,
         )
 
 
@@ -83,11 +92,18 @@ class FallbackSource:
             return await self.fixture.fetch(duration_h)
 
 
-# No verified live endpoint is wired yet (see add-market-revenue blocker). Wrap one with `FallbackSource`.
 STREAM_NAMES = ("capacity_market", "balancing_ancillary", "wholesale")
 LiveFetch = Callable[[int], Awaitable[StreamValue]]
 
 
 def default_sources() -> list[RevenueSource]:
-    """The demo sources: committed fixtures for all three streams."""
-    return [FixtureSource(name) for name in STREAM_NAMES]
+    """The demo sources: Capacity Market from its committed auction results; wholesale and ancillary live.
+
+    The live sources fall back to their fixtures, which `python -m bessible.market.refresh` rewrites from a live run.
+    """
+    a = load_market_assumptions()
+    return [
+        FixtureSource("capacity_market"),
+        FallbackSource(NesoResponseSource(), FixtureSource("balancing_ancillary")),
+        FallbackSource(ElexonArbitrageSource(a), FixtureSource("wholesale")),
+    ]

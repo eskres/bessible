@@ -1,5 +1,31 @@
 {
-  "capacity_market_derating": {"value": {"2": 0.20, "4": 0.40, "8": 0.65}, "unit": "factor", "source": "PLACEHOLDER - illustrative de-rating factors, not agreed; check the current EMR de-rating table", "date": "2026-09-19", "status": "placeholder"},
-  "cap_and_floor": {"value": {"min_duration_h": 8, "min_mw": 100, "gbp_per_mw_year": 20000}, "unit": "rules and GBP/MW/year", "source": "PLACEHOLDER - qualifying rules and value not agreed; scheme: Ofgem LDES cap and floor", "date": "2026-09-19", "status": "placeholder"},
-  "ultra_lds": {"value": {"min_duration_h": 24, "min_mw": 50, "gbp_per_mw_year": 30000}, "unit": "rules and GBP/MW/year", "source": "PLACEHOLDER - qualifying rules and value not agreed; scheme: Ultra-LDES support", "date": "2026-09-19", "status": "placeholder"}
+  "round_trip_efficiency": {
+    "value": 0.85,
+    "unit": "fraction (energy out / energy in)",
+    "source": "NREL Annual Technology Baseline 2024, Utility-Scale Battery Storage (lithium-ion, 2-10 h)",
+    "source_url": "https://atb.nlr.gov/electricity/2024/utility-scale_battery_storage",
+    "quote": "Round-trip efficiency is the ratio of useful energy output to useful energy input. Based on Cole and Karmakar (Cole and Karmakar, 2023), the 2024 ATB assumes a round-trip efficiency of 85%.",
+    "date": "2024",
+    "status": "agreed"
+  },
+  "capacity_market_derating": {
+    "value": {"2": 0.2198, "4": 0.4396, "8": 0.8777},
+    "unit": "factor (de-rated MW per connected MW)",
+    "source": "NESO Capacity Market Register, Capacity Market De-Rating Factors (resource d94ff98d-39ba-40d6-9672-7433de0631ac), 2029-30 (T-4) Four Year Ahead Capacity Auction",
+    "source_url": "https://www.neso.energy/data-portal/capacity-market-register/capacity_market_de-rating_factors",
+    "quote": "Rows 'Auction Name' = '2029-30 (T-4) Four Year Ahead Capacity Auction': 'Storage (Duration 2h)' 0.2198; 'Storage (Duration 4h)' 0.4396; 'Storage (Duration 8h)' 0.8777. Same table, '2026-27 (T-1) One Year Ahead Capacity Auction': 2h 0.2722, 4h 0.5444, 8h 0.9216.",
+    "note": "T-4 factors, to match the T-4 clearing price in data/fixtures/market/capacity_market.json (the auction a new build enters). Resource last modified 2026-09-09.",
+    "date": "2026-09-27",
+    "status": "agreed"
+  },
+  "cap_and_floor": {
+    "value": {"min_duration_h": 8, "min_mw": 100, "gbp_per_mw_year": 0},
+    "unit": "rules and GBP/MW/year",
+    "source": "Ofgem, Eligibility Criteria Assessment Framework for LDES window one (OFG1164, 8 April 2025)",
+    "source_url": "https://www.ofgem.gov.uk/sites/default/files/2025-04/Eligibility%20criteria%20assessment%20framework%20LDES%20window%201.pdf",
+    "quote": "Evidence (and related reasoning) that the scheme can maintain a minimum discharge capacity of at least 100MW (stream 1) or 50MW (stream 2). ... Duration Requirement ... 8 hours at full power.",
+    "note": "Rules are real (stream 1 = established technologies such as lithium-ion). The GBP value is NOT published: the cap and floor are set per project in Ofgem's assessment (window 1 minded-to decision, Ofgem press release 26 June 2026 https://www.ofgem.gov.uk/press-release/ofgem-boosts-long-duration-storage-secure-more-homegrown-energy-customers: 16 projects, final decisions \"later this year\"), and the floor only pays when a project's revenue falls below it. So 0 is added to revenue; the row only marks that the site is eligible to apply.",
+    "date": "2025-04-08",
+    "status": "placeholder"
+  }
 }

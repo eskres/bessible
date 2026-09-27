@@ -10,6 +10,7 @@ from temporalio import activity
 
 from bessible.config import settings
 from bessible.credentials import encrypt_google_key
+from bessible.market.sources import STREAM_NAMES, FixtureSource
 from bessible.planning.route import LpaLookup
 from bessible.ukpn.snapshot import load_snapshot
 
@@ -43,6 +44,14 @@ def offline_capacity(monkeypatch: pytest.MonkeyPatch) -> None:
 def offline_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     """No Routes API key, so cable routes fall back to straight lines; route tests pass a mock client."""
     monkeypatch.setattr(settings, "google_routes_api_key", None)
+
+
+@pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
+def offline_market(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The market stage serves the committed fixtures instead of calling Elexon and NESO."""
+    monkeypatch.setattr(
+        "bessible.stages.market.default_sources", lambda: [FixtureSource(name) for name in STREAM_NAMES]
+    )
 
 
 @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - tests pin values from the fixture snapshot

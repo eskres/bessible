@@ -12,9 +12,13 @@ from bessible.models import StreamValue
 if TYPE_CHECKING:
     from bessible.assumptions import AssumptionSet
 
+# Ultra-LDES is not here: DESNZ's "Ultra-Long Duration Energy Storage Challenge" (August 2026) is a GBP 28m
+# innovation grant for 100 h+ technologies, not a revenue stream a BESS site earns per MW.
 SUPPORT_SCHEMES = {
-    "cap_and_floor": ("Ofgem LDES cap and floor", "https://www.ofgem.gov.uk/"),
-    "ultra_lds": ("Ultra-LDES support scheme", "https://www.ofgem.gov.uk/"),
+    "cap_and_floor": (
+        "Ofgem LDES cap and floor",
+        "https://www.ofgem.gov.uk/decision/long-duration-electricity-storage-cap-and-floor-application-window-1",
+    ),
 }
 RULE_KEYS = ("min_duration_h", "min_mw", "gbp_per_mw_year")
 
@@ -53,4 +57,5 @@ def support_stream(name: str, a: AssumptionSet) -> StreamValue:
         cached=False,
         placeholder=entry.status == "placeholder",
         scheme=scheme,
+        method=entry.note,
     )
