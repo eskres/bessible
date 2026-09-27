@@ -121,8 +121,8 @@ def test_finance_evaluate_spreadsheet_and_loss_making():
         a=assumptions,
     )
     assert res_4h.duration_h == 4
-    # CAPEX = 10 * 4 * 140k + 10 * 80k + 0.5 * 600k = 5.6m + 0.8m + 0.3m = 6.7m
-    assert res_4h.capex_gbp.mid == pytest.approx(6_700_000.0, abs=100.0)
+    # CAPEX = 10 * 4 * 98.4k + 10 * 215.1k + 0.5 * 497.5k = 3.936m + 2.151m + 0.24875m = 6.33575m
+    assert res_4h.capex_gbp.mid == pytest.approx(6_335_750.0, abs=100.0)
     assert res_4h.npv_gbp.mid > 0
     assert res_4h.irr is not None
     assert res_4h.irr.mid > 0.08  # clears 8% hurdle
@@ -134,7 +134,7 @@ def test_finance_evaluate_spreadsheet_and_loss_making():
         duration_h=4,
         distance_km=0.5,
         firm_mw=10.0,
-        budget_gbp=5_000_000.0,  # 5m budget < 6.7m capex
+        budget_gbp=5_000_000.0,  # 5m budget < 6.34m capex
         a=assumptions,
     )
     assert res_budget.over_budget is True

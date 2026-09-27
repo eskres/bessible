@@ -39,42 +39,42 @@ def test_cost_scaling_and_connection():
     c8 = cost(8, 20.0, 1.0, crossings=False, a=a)
     assert c2.capex_gbp < c4.capex_gbp < c8.capex_gbp
 
-    # Connection cost for 1 km
-    assert c2.connection_gbp == (500000.0, 700000.0)
+    # Connection cost for 1 km (NGED 33 kV: £154k - £841k per km)
+    assert c2.connection_gbp == (154000.0, 841000.0)
 
     # Connection cost for 3 km
     c3km = cost(4, 20.0, 3.0, crossings=False, a=a)
-    assert c3km.connection_gbp == (1500000.0, 2100000.0)
+    assert c3km.connection_gbp == (462000.0, 2523000.0)
 
     # Crossing uplift (25%)
     c_cross = cost(4, 20.0, 1.0, crossings=True, a=a)
-    assert c_cross.connection_gbp == (625000.0, 875000.0)
+    assert c_cross.connection_gbp == (192500.0, 1051250.0)
     assert c_cross.crossing_uplift_applied is True
 
-    # 132 kV connection cost (£1.25m - £2.0m per km)
+    # 132 kV connection cost (NGED: £2.119m - £3.171m per km)
     c132 = cost(4, 80.0, 1.0, crossings=False, a=a, voltage_kv=132)
-    assert c132.connection_gbp == (1250000.0, 2000000.0)
+    assert c132.connection_gbp == (2119000.0, 3171000.0)
 
     # 132 kV connection with crossing uplift (25%)
     c132_cross = cost(4, 80.0, 2.0, crossings=True, a=a, voltage_kv=132)
-    assert c132_cross.connection_gbp == (1250000.0 * 2 * 1.25, 2000000.0 * 2 * 1.25)
+    assert c132_cross.connection_gbp == (2119000.0 * 2 * 1.25, 3171000.0 * 2 * 1.25)
 
 
 def test_otcf_thresholds():
     a = load_finance_assumptions()
 
-    # Default in finance.json is 30% (between 25% and 50% -> inactive)
+    # Default in finance.json is 210% (Ofgem CMP470: ~90 GW vs ~29 GW) -> active
     c = cost(4, 20.0, 1.0, crossings=False, a=a)
-    assert c.otcf_gbp is None
-    assert "inactive" in c.otcf_state
+    assert c.otcf_gbp == (60000.0, 500000.0)
+    assert c.otcf_state.startswith("active")
+    assert "proposed" in c.otcf_state
 
-    # Over 50% -> active
-    a_high = load_finance_assumptions()
-    a_high.entries["oversubscription_pct"].value = 60
-    c_high = cost(4, 20.0, 1.0, crossings=False, a=a_high)
-    assert c_high.otcf_gbp == (60000.0, 500000.0)
-    assert "active" in c_high.otcf_state
-    assert "proposed" in c_high.otcf_state
+    # Between 25% and 50% -> inactive
+    a_mid = load_finance_assumptions()
+    a_mid.entries["oversubscription_pct"].value = 30
+    c_mid = cost(4, 20.0, 1.0, crossings=False, a=a_mid)
+    assert c_mid.otcf_gbp is None
+    assert "inactive" in c_mid.otcf_state
 
     # Below 25% -> inactive
     a_low = load_finance_assumptions()
@@ -108,12 +108,12 @@ def test_returns_and_budget():
     c4 = cost(4, 10.0, 1.0, crossings=False, a=a)
 
     # Known repeatable calculation
-    r1 = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=10_000_000.0)
-    r2 = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=10_000_000.0)
+    r1 = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=5_000_000.0)
+    r2 = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=5_000_000.0)
     assert r1.capex_gbp == r2.capex_gbp
     assert r1.npv_gbp == r2.npv_gbp
     assert r1.irr == r2.irr
-    assert r1.over_budget is True  # capex > 10m
+    assert r1.over_budget is True  # capex > 5m
 
     # Budget check flags over budget appropriately
     r_high_budget = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=50_000_000.0)
@@ -157,7 +157,7 @@ async def test_financial_stage_end_to_end():
     # Crossing uplift applied because of railway crossing constraint
     cost_art = next(a for a in out.artifacts if "cost" in a.id)
     assert "crossing uplift of 25% applied" in cost_art.claim
-    assert "interest rate 6.5%" in cost_art.claim
+    assert "interest rate 6.23%" in cost_art.claim
 
     # Curtailment artifact states demand profile and documented assumption
     curt_art = next(a for a in out.artifacts if "curtailment" in a.id)
@@ -210,7 +210,7 @@ async def test_financial_model_132kv_rate():
     out = await financial_model(inp)
     cost_art = next(a for a in out.artifacts if "cost" in a.id)
     assert "132 kV connection" in cost_art.claim
-    assert "£1.25m-£2m/km" in cost_art.claim
-    # 2 km at £1.25m - £2.0m = £2,500,000 - £4,000,000
-    assert "£2,500,000" in cost_art.claim
-    assert "£4,000,000" in cost_art.claim
+    assert "£2.119m-£3.171m/km" in cost_art.claim
+    # 2 km at £2.119m - £3.171m = £4,238,000 - £6,342,000
+    assert "£4,238,000" in cost_art.claim
+    assert "£6,342,000" in cost_art.claim
