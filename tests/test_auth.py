@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from bessible import auth
 from bessible.api.app import app
@@ -44,7 +45,8 @@ def _client(verifier: Any, tmp_path: Path | None = None) -> TestClient:
 
 
 @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - applies to every test here
-def _clean() -> Any:
+def _clean(monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.setattr(settings, "auth_enabled", True)  # a developer's .env may turn sign-in off
     yield
     app.dependency_overrides.clear()
 
@@ -107,6 +109,43 @@ def test_allowed_emails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, claims:
     monkeypatch.setattr(settings, "allowed_emails", "a@example.com, b@example.com")
     res = _client(lambda _t: claims, tmp_path).get("/me/key", headers={"Authorization": "Bearer t"})
     assert res.status_code == (404 if status == 200 else status)  # 404 = let in, no key stored
+
+
+def test_auth_disabled_lets_everyone_in_as_local_user(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(settings, "auth_enabled", False)
+
+    def never(_token: str) -> dict[str, Any]:
+        raise AssertionError("no token is verified with sign-in off")
+
+    store = KeyStore(tmp_path / "keys.db", Keyring("k1", {"k1": b"secret"}))
+    store.put("local", "AIza-local-key-1234")
+    client = _client(never)
+    app.dependency_overrides[get_key_store] = lambda: store
+    res = client.get("/me/key")
+    assert res.status_code == 200
+    assert res.json()["last4"] == "1234"
+
+
+def test_auth_disabled_seeds_the_local_key_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(settings, "auth_enabled", False)
+    monkeypatch.setattr(settings, "google_api_key", SecretStr("AIza-developer-key-9876"))
+    monkeypatch.setattr(settings, "key_db_path", tmp_path / "keys.db")
+    monkeypatch.setattr(settings, "key_encryption_secret", SecretStr("secret"))
+    app.dependency_overrides.clear()
+    client = TestClient(app)
+    assert client.get("/me/key").json()["last4"] == "9876"
+
+    client.put("/me/key", json={"google_api_key": "AIza-saved-in-settings-5555"})
+    assert client.get("/me/key").json()["last4"] == "5555"  # a key saved in Settings wins over .env
+
+
+def test_auth_enabled_never_seeds_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(settings, "google_api_key", SecretStr("AIza-developer-key-9876"))
+    monkeypatch.setattr(settings, "key_db_path", tmp_path / "keys.db")
+    monkeypatch.setattr(settings, "key_encryption_secret", SecretStr("secret"))
+    app.dependency_overrides[get_token_verifier] = lambda: _good
+    res = TestClient(app).get("/me/key", headers={"Authorization": "Bearer t"})
+    assert res.status_code == 404
 
 
 def test_unconfigured_project_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:

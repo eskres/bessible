@@ -1,5 +1,7 @@
 """Firebase sign-in: verify the ID token on every non-demo request and yield who is calling.
 
+With `AUTH_ENABLED=false` (local dev) there is no sign-in: every caller is `LOCAL_USER`.
+
 Uses `google-auth`, not `firebase-admin`: `verify_firebase_token` needs no service-account file, it only fetches
 Google's public certs (cached here) and checks signature, expiry and audience. The issuer and `sub` are checked
 explicitly because the library does not.
@@ -32,6 +34,9 @@ class User(BaseModel):
 
     uid: str
     email: str | None = None
+
+
+LOCAL_USER = User(uid="local")
 
 
 @functools.cache
@@ -82,6 +87,8 @@ async def current_user(
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
     """FastAPI dependency for every non-demo route: 401 without a valid Firebase ID token."""
+    if not settings.auth_enabled:
+        return LOCAL_USER
     unauthorized = HTTPException(status_code=401, detail="unauthorized", headers={"WWW-Authenticate": "Bearer"})
     if authorization is None or not authorization.lower().startswith(BEARER):
         raise unauthorized

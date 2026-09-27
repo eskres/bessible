@@ -77,4 +77,5 @@ def test_developer_key_is_never_used_by_the_pipeline():
         if "developer_model" in p.read_text(encoding="utf-8")
         or "settings.google_api_key" in p.read_text(encoding="utf-8")
     ]
-    assert set(users) <= DEVELOPER_ONLY | {"src/bessible/cli.py", "src/bessible/config.py"}
+    # keystore.py seeds the local user's key from .env only when sign-in is off (AUTH_ENABLED=false, local dev).
+    assert set(users) <= DEVELOPER_ONLY | {"src/bessible/cli.py", "src/bessible/config.py", "src/bessible/keystore.py"}

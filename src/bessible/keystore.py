@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastapi import Depends
 from pydantic import BaseModel
 
-from bessible.auth import User, current_user
+from bessible.auth import LOCAL_USER, User, current_user
 from bessible.config import settings
 from bessible.models import EncryptedCredentials
 
@@ -163,5 +163,9 @@ def get_key_store(_user: Annotated[User, Depends(current_user)]) -> KeyStore:
     """FastAPI dependency: the key store on the VM, built from settings (tests override this).
 
     Depends on the signed-in user so an unauthenticated request gets 401 before the key database is ever opened.
+    With sign-in off (local dev), the local user starts with your `GOOGLE_API_KEY` from `.env`, as the CLI does.
     """
-    return KeyStore(settings.key_db_path, Keyring.from_settings())
+    store = KeyStore(settings.key_db_path, Keyring.from_settings())
+    if not settings.auth_enabled and settings.google_api_key is not None and store.meta(LOCAL_USER.uid) is None:
+        store.put(LOCAL_USER.uid, settings.google_api_key.get_secret_value())
+    return store

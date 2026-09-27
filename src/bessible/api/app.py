@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +14,9 @@ from bessible.api import capacity, demo, events, me, runs
 from bessible.auth import current_user
 from bessible.config import settings
 from bessible.keystore import KeyStoreError
+
+if not settings.auth_enabled:
+    logging.getLogger(__name__).warning("AUTH_ENABLED=false: sign-in is off, every caller is the local user")
 
 app = FastAPI(
     title="Bessible API",
