@@ -78,37 +78,74 @@ async def classify_source(source: Source, model: Model | None = None) -> list[Cl
     return await classify(source.paragraphs, ParagraphLabels, model=model)
 
 
+SEARCH_DOCS_URL = HttpUrl("https://docs.tavily.com/documentation/api-reference/endpoint/search")
+
+
+def _search_record(research: Research) -> str:
+    """What was searched and what came back, for the artifact claims."""
+    queries = "; ".join(f'"{sanitize_untrusted_text(q, max_len=120)}"' for q in research.queries)
+    got = f"{research.results} results, {research.pages_read} UK pages read"
+    if research.recorded:
+        when = f" (recorded Tavily responses fetched {research.fetched_on})"
+    elif research.cached:
+        when = f" (cached Tavily responses fetched {research.fetched_on})"
+    else:
+        when = f" ({research.credits:g} Tavily credits)"
+    return f"Tavily searched {len(research.queries)} queries [{queries}]: {got}{when}"
+
+
+def _search_model(research: Research) -> str:
+    return f"Tavily search; paragraphs selected by {research.selected_by or 'none'}"
+
+
 async def process_sentiment(run_id: str, research: Research, model: Model | None = None) -> SentimentOutput:
     """Classify sources concurrently, compute opposition index, and produce artifacts.
 
-    `model` is the run owner's model for the `llm` classifier backend.
+    `model` is the run owner's model for the `llm` classifier backend. Three outcomes read differently: the search
+    did not run or failed (a gap, low confidence), it ran and found nothing relevant (moderate confidence: news
+    coverage is partial), or it found coverage (quotes, each linked to its article).
     """
-    if not research.sources and research.unavailable:
+    if research.unavailable:
         gap = DataGap(
             stage="sentiment",
             what="local_news",
             reason=research.unavailable,
-            sources=["news search"],
+            sources=["Tavily search"],
             retryable=research.retryable,
         )
         missing_art = Artifact(
             id=f"sentiment-none-{run_id[:8]}",
             stage="sentiment",
             claim=f"Local news not assessed: {research.unavailable}",
-            source_url=HttpUrl("https://news.google.com"),
+            source_url=SEARCH_DOCS_URL,
             confidence=0.2,
             model_used="none",
         )
         return SentimentOutput(opposition_index=None, artifacts=[missing_art], gaps=[gap])
 
+    gaps = []
+    if research.retryable:  # some queries failed, the rest answered
+        gaps.append(
+            DataGap(
+                stage="sentiment",
+                what="local_news",
+                reason="Some news queries failed; coverage may be incomplete.",
+                sources=["Tavily search"],
+                retryable=True,
+            )
+        )
+
     if not research.sources:
         empty_art = Artifact(
             id=f"sentiment-none-{run_id[:8]}",
             stage="sentiment",
-            claim="No relevant local planning or energy infrastructure coverage found in public news sources",
-            source_url=HttpUrl("https://news.google.com"),
-            confidence=0.90,
-            model_used="gemini-3.8-flash",
+            claim=(
+                f"{_search_record(research)}. None had a paragraph about energy projects near {research.place}. "
+                "Absence from search results is weak evidence: local coverage is often not indexed."
+            ),
+            source_url=SEARCH_DOCS_URL,
+            confidence=0.5,
+            model_used=_search_model(research),
         )
         return SentimentOutput(
             opposition_index=None,
@@ -116,6 +153,7 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
             sources=0,
             paragraphs=0,
             artifacts=[empty_art],
+            gaps=gaps,
         )
 
     # Classify sources concurrently
@@ -164,17 +202,25 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
     else:
         index_claim = "Community opposition index unavailable (no relevant local news paragraphs identified)."
 
-    first_url = research.sources[0].url if research.sources else HttpUrl("https://news.google.com")
-    artifacts.append(
+    classifiers = sorted({item.model for _, item in all_classified}) or ["none"]
+    artifacts.extend((
         Artifact(
             id=f"sentiment-index-{run_id[:8]}",
             stage="sentiment",
             claim=index_claim,
-            source_url=first_url,
-            confidence=0.88,
-            model_used="gemini-3.8-flash",
-        )
-    )
+            source_url=research.sources[0].url,
+            confidence=0.88 if opposition_index is not None else 0.5,
+            model_used=", ".join(classifiers),
+        ),
+        Artifact(
+            id=f"sentiment-search-{run_id[:8]}",
+            stage="sentiment",
+            claim=f"{_search_record(research)}; {len(research.sources)} pages had relevant paragraphs.",
+            source_url=SEARCH_DOCS_URL,
+            confidence=0.9,
+            model_used=_search_model(research),
+        ),
+    ))
 
     return SentimentOutput(
         opposition_index=opposition_index,
@@ -182,4 +228,5 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
         sources=len(research.sources),
         paragraphs=len(all_classified),
         artifacts=artifacts,
+        gaps=gaps,
     )

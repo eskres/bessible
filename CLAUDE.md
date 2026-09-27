@@ -62,6 +62,12 @@ model used); the report is built only from artifacts. CLI first; a web UI is opt
   `Artifact`s / `SiteLandOutput` for the existing collation (`SynthesisInput`).
   `uv run python -m bessible.possibility <lat> <lon> [mw] [hours] [--policy] [--json]` runs it on a live location.
 
+- `src/bessible/suitability/research.py` — local news: `research_local_news(LocationData)` builds ≤4 queries from
+  `locality` / `search_terms`, searches Tavily (`api/tavily.py`, operator key `TAVILY_API_KEY`) with page text, and
+  keeps only paragraphs found verbatim in that text (the model may only select). Responses cache in `out/cache/tavily/`;
+  `data/recorded/tavily/` holds dated recordings for the offline demo. `uv run python scripts/news_research.py <lat>
+  <lon> [--model] [--record] [--fixture NAME]` runs it live and prints every quote with its URL.
+
 - `sandbox/map_session/` — tracked prototype, the base for the final build (the rest of `sandbox/` is gitignored).
   `workflow.py`: `AssessWorkflow` (task queue `bessible-web`): AI suggests area → human edits on the map (`submit_area`
   update, validated) → `confirm_area` → engines; the UI polls the `state` query. `activities.py` (dummies),

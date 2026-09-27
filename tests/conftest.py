@@ -10,6 +10,7 @@ from temporalio import activity
 
 from bessible.config import settings
 from bessible.credentials import encrypt_google_key
+from bessible.location import Agentic, Coordinates, Deterministic, Locality, LocationData
 from bessible.market.sources import STREAM_NAMES, FixtureSource
 from bessible.planning.route import LpaLookup
 from bessible.ukpn.snapshot import load_snapshot
@@ -52,6 +53,24 @@ def offline_market(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "bessible.stages.market.default_sources", lambda: [FixtureSource(name) for name in STREAM_NAMES]
     )
+
+
+@pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
+def offline_news(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """No Tavily key, an empty cache and no recordings; the sentiment stage's place names come from a fake lookup."""
+    monkeypatch.setattr(settings, "tavily_api_key", None)
+    monkeypatch.setattr(settings, "cache_dir", tmp_path / "cache")
+    monkeypatch.setattr("bessible.suitability.research.RECORDED_DIR", tmp_path / "recorded")
+
+    async def fake(coords: Coordinates, **_kwargs: object) -> LocationData:
+        where = Locality(place="Dorking", district="Mole Valley", planning_authority="Mole Valley", county="Surrey")
+        return LocationData(
+            coords=coords,
+            deterministic=Deterministic(locality=where),
+            agentic=Agentic(search_terms=["Dorking", "Mole Valley", "Surrey"]),
+        )
+
+    monkeypatch.setattr("bessible.stages.sentiment.locality", fake)
 
 
 @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - tests pin values from the fixture snapshot

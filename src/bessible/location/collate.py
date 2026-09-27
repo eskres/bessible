@@ -531,6 +531,44 @@ async def collate(coords: Coordinates, *, client: httpx.AsyncClient | None = Non
     )
 
 
+AREA_DATASETS = ["local-planning-authority", "local-authority-district", "parish", "ward", "region", "built-up-area"]
+
+
+async def locality(coords: Coordinates, *, client: httpx.AsyncClient | None = None) -> LocationData:
+    """The administrative geography and search terms of `collate`, from 3 calls instead of ~40.
+
+    For stages that run beside `site_land` and need names, not the land. Areas are looked up at the point, not the
+    title.
+    """
+    if client is None:
+        async with httpx.AsyncClient(timeout=30, headers={"User-Agent": "bessible"}, follow_redirects=True) as own:
+            return await locality(coords, client=own)
+    f = _Fetcher(client)
+    lat, lon = coords.lat, coords.lon
+    areas_req = planning_data.EntitySearchRequest(
+        latitude=lat, longitude=lon, dataset=AREA_DATASETS, exclude_field=["geometry"], limit=PAGE
+    )
+    postcodes, address, areas = await asyncio.gather(
+        f.get(
+            "Postcodes.io: nearest postcode",
+            postcodes_io.ReverseGeocodeRequest(lat=lat, lon=lon, widesearch=True, limit=1),
+            postcodes_io.ReverseGeocodeResponse.model_validate,
+        ),
+        f.get(
+            "Nominatim: address", nominatim.ReverseRequest(lat=lat, lon=lon), nominatim.ReverseResponse.model_validate
+        ),
+        _entities(f, "Planning Data: areas at the point", areas_req),
+    )
+    postcode = postcodes.result[0] if postcodes and postcodes.result else None
+    where = transform.locality(postcode, address, areas)
+    return LocationData(
+        coords=coords,
+        deterministic=Deterministic(locality=where),
+        agentic=Agentic(search_terms=transform.search_terms(where)),
+        sources=f.sources,
+    )
+
+
 def _lat_lon_box(bbox: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
     """(min_lon, min_lat, max_lon, max_lat) -> (min_lat, min_lon, max_lat, max_lon), the API builders' order."""
     min_lon, min_lat, max_lon, max_lat = bbox

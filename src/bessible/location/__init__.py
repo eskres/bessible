@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from .collate import collate
+from .collate import collate, locality
 from .extract import ExtractedLocation, LocationNotFound, extract_location, resolve_from_link
 from .fetch import PageUnavailable, fetch_page_text
 from .models import (
@@ -51,5 +51,6 @@ __all__ = [
     "collate",
     "extract_location",
     "fetch_page_text",
+    "locality",
     "resolve_from_link",
 ]
