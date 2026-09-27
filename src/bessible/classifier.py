@@ -47,6 +47,13 @@ MODAL_APP = "bessible-classifier"
 MODAL_NAME = "open-jev-deberta-v3-large (Modal)"
 HEURISTIC_NAME = "keyword heuristic"
 LLM_BATCH_SIZE = 25
+HEURISTIC_CONCERNS = (  # first match wins; an objection matching none is "land use"
+    ("fire safety", ("fire",)),
+    ("noise", ("noise",)),
+    ("traffic", ("traffic",)),
+    ("heritage", ("heritage", "listed building", "conservation area")),
+    ("consultation or process", ("consultation", "process")),
+)
 
 
 class ClassifierError(RuntimeError):
@@ -198,15 +205,8 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
         is_support = any(w in low for w in ("support", "welcome", "approve", "green", "net zero", "essential"))
 
         stance = "against" if is_against else ("supportive" if is_support else "neutral")
-        concern = (
-            (
-                "fire safety"
-                if "fire" in low
-                else ("noise" if "noise" in low else ("traffic" if "traffic" in low else "land use"))
-            )
-            if is_against
-            else NO_CONCERN
-        )
+        found = (c for c, words in HEURISTIC_CONCERNS if any(w in low for w in words))
+        concern = next(found, "land use") if is_against else NO_CONCERN
         if any(w in low for w in ("the developer", "we are proposing", "we have proposed", "proposing to develop")):
             voice = DEVELOPER
         elif any(w in low for w in ("resident", "campaign", "objector", "neighbour", "councillor", "parish council")):

@@ -92,6 +92,19 @@ def test_heuristic_voice():
     assert residents.labels.voice == COMMUNITY
 
 
+def test_heuristic_concerns_include_heritage_and_process():
+    texts = [
+        "Objectors say the battery site would harm the setting of a listed building.",
+        "Residents object that the consultation on the solar farm was rushed.",
+        "Residents object to the battery site on farmland.",
+    ]
+    assert [r.labels.concern for r in _classify_heuristic(texts, ParagraphLabels)] == [
+        "heritage",
+        "consultation or process",
+        "land use",
+    ]
+
+
 def test_opposition_index_mixed_coverage():
     """Verify 2 against at 0.9 and 1 supportive at 0.6 give index > 0.5."""
     items = [

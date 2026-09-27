@@ -28,7 +28,16 @@ class ParagraphLabels(BaseModel):
     )
     # Without a "none" option every paragraph had to name a concern, so a consent date came out as "fire safety".
     concern: Literal[
-        "no concern raised", "fire safety", "noise", "visual impact", "traffic", "land use", "ecology", "other"
+        "no concern raised",
+        "fire safety",
+        "noise",
+        "visual impact",
+        "traffic",
+        "land use",
+        "ecology",
+        "heritage",
+        "consultation or process",
+        "other",
     ] = Field(
         description="Which worry or objection about the project does the text raise? "
         f"Choose '{NO_CONCERN}' if it raises none."
