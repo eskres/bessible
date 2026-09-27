@@ -58,7 +58,18 @@ ENERGY_WORDS = re.compile(
     r"|megawatts?|mw|pylons?|cable route)\b",
     re.IGNORECASE,
 )
-# Non-.uk hosts of UK outlets; everything else must be under .uk (country="united kingdom" only boosts).
+# Social sites: login walls or empty text, and posts are not attributable coverage. Excluding them costs nothing.
+EXCLUDED_DOMAINS = (
+    "facebook.com",
+    "linkedin.com",
+    "x.com",
+    "twitter.com",
+    "instagram.com",
+    "tiktok.com",
+    "youtube.com",
+)
+MIN_NAME_MENTIONS = 2  # a page on a non-UK host counts as local if it names the area this often
+# Non-.uk hosts of UK outlets; other pages must be under .uk or name the area (country="united kingdom" only boosts).
 UK_HOSTS = frozenset({
     "theguardian.com",
     "thetimes.com",
@@ -89,7 +100,7 @@ class Research(BaseModel):
     status: Literal["not_configured", "failed", "searched"] = "searched"
     queries: list[str] = Field(default_factory=list)
     results: int = 0  # results Tavily returned over all queries, before de-duplication and the UK filter
-    pages_read: int = 0  # UK pages whose text was searched for paragraphs
+    pages_read: int = 0  # UK or local (`is_local`) pages whose text was searched for paragraphs
     credits: float = 0.0  # Tavily credits used by this run (0 when served from the cache)
     fetched_on: date | None = None  # oldest response date, when any came from the cache or a recording
     recorded: bool = False  # a committed recording answered (the offline demo)
@@ -108,12 +119,18 @@ def news_queries(location: LocationData) -> list[str]:
     council = where.planning_authority or where.district
     queries: list[str] = []
     if place:
-        queries += [f"{place} battery storage BESS planning application", f"{place} solar farm substation residents"]
+        queries += [
+            f"{place} battery storage BESS planning application",
+            f"{place} battery energy storage objections residents",
+        ]
     if council and council != place:
         queries.append(f"{council} council battery energy storage planning application")
-    other = next((t for t in terms if t not in {place, council, where.county}), None)  # e.g. the parish
+    # e.g. the parish; a ward named after the place ("Dorking North") adds nothing
+    other = next((t for t in terms if t not in {council, where.county} and not (place and place in t)), None)
     if other:
         queries.append(f"{other} battery storage solar farm")
+    elif place:
+        queries.append(" ".join(w for w in (place, where.county, "solar farm substation news") if w))
     return list(dict.fromkeys(queries))[:MAX_QUERIES]
 
 
@@ -127,6 +144,8 @@ def search_request(query: str, today: date) -> tavily.SearchRequest:
         start_date=f"{today.year - YEARS_BACK}-01-01",  # yearly, so the cache key is stable within a year
         max_results=RESULTS_PER_QUERY,
         include_raw_content="text",
+        include_published_date=True,  # otherwise results carry no date
+        exclude_domains=list(EXCLUDED_DOMAINS),
         include_answer=False,
         include_images=False,
         auto_parameters=False,
@@ -238,6 +257,14 @@ def is_uk(url: str) -> bool:
     return host.endswith(".uk") or host in UK_HOSTS
 
 
+def is_local(url: str, text: str, names: list[str]) -> bool:
+    """A UK host, or a page (e.g. a local blog) that names the area at least `MIN_NAME_MENTIONS` times."""
+    if is_uk(url):
+        return True
+    words = re.compile(r"\b(" + "|".join(re.escape(n) for n in names) + r")\b", re.IGNORECASE)  # not "histone"
+    return bool(names) and len(words.findall(text)) >= MIN_NAME_MENTIONS
+
+
 def _published(raw: str | None) -> date | None:
     if not raw:
         return None
@@ -259,11 +286,11 @@ class _Page(BaseModel):
     candidates: list[str]  # energy paragraphs, verbatim (whitespace normalised)
 
 
-def _pages(answers: list[_Answer]) -> list[_Page]:
+def _pages(answers: list[_Answer], names: list[str]) -> list[_Page]:
     best: dict[str, tuple[float, tavily.SearchResult]] = {}
     for a in answers:
         for r in a.response.results:
-            if not r.raw_content or not is_uk(r.url):
+            if not r.raw_content or not is_local(r.url, r.raw_content, names):
                 continue
             if r.url not in best or r.score > best[r.url][0]:
                 best[r.url] = (r.score, r)
@@ -425,7 +452,8 @@ async def research_local_news(
     stored = [a.fetched_on for a in answers if not a.live]
     research.fetched_on = min(stored) if stored else None
 
-    pages = _pages(answers)
+    names = [w for w in (place, lpa) if w]
+    pages = _pages(answers, names)
     research.pages_read = len(pages)
     picked: dict[int, list[str]] | None = None
     if model is not None and any(p.candidates for p in pages):

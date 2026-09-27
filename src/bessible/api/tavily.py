@@ -11,8 +11,11 @@ Notes:
 - ``search_depth="basic"`` costs 1 credit and ``"advanced"`` 2; ``include_usage`` reports the credits used.
 - Errors are non-2xx with ``{"detail": {"error": "..."}}`` -> ``ErrorResponse``: 400 bad request, 401 bad key,
   429 rate limit, 432 / 433 plan or pay-as-you-go limit.
-- The request fields match tavily-python 0.8.4 (``AsyncTavilyClient._search``) and @tavily/core 0.7.13. The
-  response fields match the @tavily/core types.
+- ``published_date`` comes back only with ``include_published_date``, as an RFC 2822 string
+  (``"Sat, 31 May 2025 00:00:00 GMT"``): Tavily's estimate of publication or last update.
+- ``start_date`` / ``end_date`` only rank by date; ``filter_by_published_date`` removes results outside the window
+  (and results with no detectable date).
+- The fields match docs.tavily.com (checked 2026-09-27) and a live response (``tests/api/fixtures``).
 """
 
 from __future__ import annotations
@@ -43,18 +46,25 @@ class SearchRequest(ApiRequest):
     query: str = Field(max_length=400)
     search_depth: Literal["basic", "advanced", "fast", "ultra-fast"] | None = None  # server default "basic"
     topic: Literal["general", "news", "finance"] | None = None  # server default "general"
-    time_range: Literal["day", "week", "month", "year"] | None = None
+    time_range: Literal["day", "week", "month", "year", "d", "w", "m", "y"] | None = None
     start_date: str | None = None  # YYYY-MM-DD, results published on or after
     end_date: str | None = None
+    include_published_date: bool | None = None  # adds `published_date` to each result
+    filter_by_published_date: bool | None = None  # drop results outside the date window, or with no date
     max_results: int | None = Field(default=None, ge=0, le=20)  # server default 5
     chunks_per_source: int | None = Field(default=None, ge=1, le=3)  # advanced depth only
     include_domains: list[str] | None = None
     exclude_domains: list[str] | None = None
+    include_domains_mode: Literal["restrict", "prefer"] | None = None
     include_answer: bool | Literal["basic", "advanced"] | None = None
     include_raw_content: bool | Literal["markdown", "text"] | None = None  # True = "markdown"
     include_images: bool | None = None
+    include_image_descriptions: bool | None = None
     include_favicon: bool | None = None
-    country: str | None = None  # full lowercase name, e.g. "united kingdom"; topic "general" only
+    country: str | None = None  # full lowercase name, e.g. "united kingdom"; boosts only; topic "general" only
+    language: str | None = None  # ISO 639-1 code or English name; boosts unless filter_by_language
+    filter_by_language: bool | None = None
+    safe_search: bool | None = None
     auto_parameters: bool | None = None  # let Tavily pick topic / depth / time range (can cost 2 credits)
     exact_match: bool | None = None  # only results containing the quoted phrases in `query`
     include_usage: bool | None = None
@@ -94,7 +104,8 @@ class SearchResult(ApiResponse):
     content: str  # short snippet most relevant to the query
     score: float  # relevance to the query, 0-1
     raw_content: str | None = None  # cleaned page text, with include_raw_content; None when it could not be fetched
-    published_date: str | None = None  # topic "news" only
+    published_date: str | None = None  # RFC 2822, with include_published_date
+    id: str | None = None  # unique result identifier, e.g. "1486a5-00"
     favicon: str | None = None
     images: list[Image | str] | None = None
 

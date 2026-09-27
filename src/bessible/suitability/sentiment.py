@@ -84,7 +84,7 @@ SEARCH_DOCS_URL = HttpUrl("https://docs.tavily.com/documentation/api-reference/e
 def _search_record(research: Research) -> str:
     """What was searched and what came back, for the artifact claims."""
     queries = "; ".join(f'"{sanitize_untrusted_text(q, max_len=120)}"' for q in research.queries)
-    got = f"{research.results} results, {research.pages_read} UK pages read"
+    got = f"{research.results} results, {research.pages_read} UK or local pages read"
     if research.recorded:
         when = f" (recorded Tavily responses fetched {research.fetched_on})"
     elif research.cached:

@@ -14,6 +14,7 @@ from pydantic import SecretStr
 from bessible.classifier import Classified
 from bessible.config import settings
 from bessible.location import Agentic, Coordinates, Deterministic, Locality, LocationData
+from bessible.location.transform import search_terms
 from bessible.models import (
     AssessmentRequest,
     CapacityOutput,
@@ -41,6 +42,7 @@ from bessible.suitability.labels import ParagraphLabels
 from bessible.suitability.research import (
     KEYWORD_SELECTOR,
     cache_key,
+    is_local,
     news_queries,
     research_local_news,
     search_request,
@@ -226,6 +228,7 @@ PAGE_TEXT = (
     "Mole Valley District Council will decide the planning application for the battery scheme next month.\n"
     "Sign up to our newsletter for the latest stories from across Surrey and beyond every day.\n"
 )
+US_TEXT = "Residents in Austin have objected to a 40MW battery storage site on farmland north of the city.\n"
 
 
 def _tavily_body(
@@ -238,7 +241,13 @@ def _tavily_body(
         "images": [],
         "results": [
             {"title": "Dorking battery plan", "url": url, "content": "Residents...", "score": 0.8, "raw_content": text},
-            {"title": "US story", "url": "https://example.com/us", "content": "x", "score": 0.9, "raw_content": text},
+            {
+                "title": "US story",
+                "url": "https://example.com/us",
+                "content": "x",
+                "score": 0.9,
+                "raw_content": US_TEXT,
+            },
         ],
         "response_time": 1.2,
         "usage": {"credits": 1},
@@ -263,6 +272,26 @@ def test_news_queries_come_from_location_data():
     assert queries[0].startswith("Dorking ")
     assert any("Mole Valley" in q for q in queries)
     assert all(len(q) <= 400 for q in queries)
+
+
+def test_news_queries_skip_unparished_areas_and_wards_named_after_the_place():
+    where = DORKING.deterministic.locality.model_copy(update={"parish": "Mole Valley, unparished area"})
+    terms = search_terms(where)
+    assert not any("unparished" in t for t in terms)
+    location = DORKING.model_copy(
+        update={"agentic": DORKING.agentic.model_copy(update={"search_terms": ["Dorking", "Dorking North", *terms]})}
+    )
+    queries = news_queries(location)
+    assert len(queries) == 4
+    assert not any("unparished" in q or "Dorking North" in q for q in queries)
+
+
+def test_non_uk_hosts_count_only_when_they_name_the_area():
+    names = ["Dorking", "Mole Valley"]
+    assert is_local("https://www.example.co.uk/x", "", names)
+    assert is_local("https://newleatherheadliving.wordpress.com/x", "Dorking ... Mole Valley District Council", names)
+    assert not is_local("https://www.barbadosparliament.com/x.pdf", "one mention of Dorking", names)
+    assert not is_local("https://example.edu/cell.pdf", "Histone H3 and histone H4", ["Histon"])  # whole words only
 
 
 def test_verbatim_normalises_whitespace_only():
@@ -402,7 +431,7 @@ async def test_searched_and_found_nothing_is_its_own_outcome(monkeypatch: pytest
     assert "not assessed" not in art.claim
     assert "not configured" not in art.claim
     assert "Tavily searched" in art.claim
-    assert "UK pages read" in art.claim
+    assert "UK or local pages read" in art.claim
     assert 0.2 < art.confidence < 0.9
     assert art.model_used.startswith("Tavily search")
     assert out.opposition_index is None
