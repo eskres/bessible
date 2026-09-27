@@ -51,13 +51,22 @@ src/bessible/stages/sentiment.py                            # new
 class Source(BaseModel):
     url: HttpUrl; title: str; published: date | None; paragraphs: list[str]   # each paragraph <= ~200 words
 class Research(BaseModel):
-    place: str; lpa: str | None; sources: list[Source]
+    place: str; lpa: str | None; county: str | None; sources: list[Source]   # + search record: queries, credits, ...
 
 class ParagraphLabels(BaseModel):            # labels.py; field descriptions are the classifier's questions
     relevant: bool = Field(description="The text is about an energy project or infrastructure near a local community.")
-    stance: Literal["against", "neutral", "supportive"] = Field(description="The text's attitude to the project.")
-    concern: Literal["fire safety", "noise", "visual impact", "traffic", "land use", "ecology", "other"] = Field(description="The main concern raised.")
+    voice: Literal["residents, campaigners or councillors", "the developer or its consultants",
+                   "a reporter or official stating facts"] = Field(description="Whose view does the text give?")
+    stance: Literal["against", "neutral", "supportive"] = Field(
+        description="Does the text express or report opposition to the project, support for it, or neither?")
+    concern: Literal["no concern raised", "fire safety", "noise", "visual impact", "traffic", "land use", "ecology",
+                     "heritage", "consultation or process", "other"] = Field(
+        description="Which worry or objection about the project does the text raise? Choose 'no concern raised' if it raises none.")
     mentions_risk: bool = Field(description="The text mentions a risk for a battery storage project.")
+
+# Sentiment paragraphs are labelled by the run's model (Gemini), else keyword rules; not Modal. On 22 real paragraphs
+# plus 4 written complaints (2026-09-27) Modal labelled 0 of 4 complaints "against" and its answers changed with the
+# other questions in the same call. Research: Tavily Search (4 scoped queries) + Extract for UK results without text.
 
 class SentimentOutput(BaseModel):
     opposition_index: float | None           # 0-1, None = unknown
@@ -69,11 +78,11 @@ async def local_sentiment(inp: NodeInput) -> SentimentOutput
 ```
 
 - **Research agent:** Gemini with the Google Search native tool (`WebSearchTool`). Output type `Research`. The prompt gives the place name, the LPA if known, and the query themes (battery storage, solar farm, substation, planning objection). The agent returns paragraphs, not whole pages, which keeps within the classifier's 256-token limit and avoids a separate scraper. How the native tool attaches to the agent is confirmed in task 1.1.
-- **Cache:** `data/fixtures/news/<site-key>.json` stores the `Research` result. The site key is the rounded position. The cache is read before searching and written after. Demo sites are committed.
+- **Cache:** every Tavily response is cached under `out/cache/tavily/` for 7 days, keyed by a hash of the request body. Committed recordings under `data/recorded/tavily/` (same key) serve the offline demo; `scripts/news_research.py --record` writes them.
 - **Index:** `against = +1, neutral = 0, supportive = -1`, weighted by stance confidence × relevance confidence, averaged, then mapped from [-1, 1] to [0, 1]. Top concerns are the weighted counts over relevant paragraphs.
 - **Classification:** one `classify()` call per source (a batch of its paragraphs). Sources run concurrently with `asyncio.gather`.
 
-**Why Modal for labels and Gemini for research:** labelling is many small typed decisions where calibrated confidence matters. Research needs search and reading comprehension. Each partner does the job it is best at, and both are visible in the trace.
+**Why Gemini for labels (updated 2026-09-27):** the plan was Modal for labels, for calibrated confidence. Measured on real coverage, Modal missed implied objections and its answers changed with the other questions asked in the same call, so the run's model labels sentiment and Modal cross-checks policy quotes. Tavily finds and fetches the coverage; the model only selects verbatim paragraphs.
 
 ### Market revenue (simplified)
 
