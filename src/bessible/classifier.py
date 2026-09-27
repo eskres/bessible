@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field, create_model
 from pydantic_ai import Agent, ModelRetry
 
 from bessible.config import settings
-from bessible.suitability.labels import ParagraphLabels
+from bessible.suitability.labels import NO_CONCERN, ParagraphLabels
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -199,9 +199,13 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
 
         stance = "against" if is_against else ("supportive" if is_support else "neutral")
         concern = (
-            "fire safety"
-            if "fire" in low
-            else ("noise" if "noise" in low else ("traffic" if "traffic" in low else "land use"))
+            (
+                "fire safety"
+                if "fire" in low
+                else ("noise" if "noise" in low else ("traffic" if "traffic" in low else "land use"))
+            )
+            if is_against
+            else NO_CONCERN
         )
         labels = ParagraphLabels(
             relevant=is_relevant,

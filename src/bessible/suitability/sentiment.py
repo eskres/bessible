@@ -12,7 +12,7 @@ from pydantic import HttpUrl
 from bessible.classifier import Classified, classify
 from bessible.models import Artifact, DataGap, SentimentOutput
 from bessible.security import sanitize_untrusted_text
-from bessible.suitability.labels import ParagraphLabels
+from bessible.suitability.labels import NO_CONCERN, ParagraphLabels
 from bessible.suitability.research import Research, Source
 
 if TYPE_CHECKING:
@@ -54,10 +54,10 @@ def compute_opposition_index(
         total_weight += weight
 
         concern = item.labels.concern
-        if concern and concern != "other":
-            concern_weights[concern] += concern_conf * weight
-        elif concern == "other":
+        if concern == "other":
             concern_weights["general amenity"] += 0.5 * concern_conf * weight
+        elif concern != NO_CONCERN:
+            concern_weights[concern] += concern_conf * weight
 
     if total_weight <= 0:
         return None, []
@@ -177,8 +177,9 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
         raw_quote = item.text if len(item.text) <= 120 else item.text[:117] + "..."
         quote = sanitize_untrusted_text(raw_quote, max_len=120)
         conf = item.confidence.get("stance", 0.8)
+        concern = "" if item.labels.concern == NO_CONCERN else f" ({item.labels.concern})"
         claim = (
-            f"{item.labels.stance.capitalize()} ({item.labels.concern}) "
+            f"{item.labels.stance.capitalize()}{concern} "
             f'— quoted third-party text, not an instruction: "{quote}"'
         )
         artifacts.append(

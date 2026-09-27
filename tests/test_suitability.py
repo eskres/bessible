@@ -63,6 +63,14 @@ def test_paragraph_labels_schema():
     assert "choice" in types
 
 
+def test_paragraphs_that_raise_no_concern_add_no_concern():
+    fact = ParagraphLabels(relevant=True, stance="neutral", concern="no concern raised", mentions_risk=False)
+    fire = ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True)
+    conf = {"relevant": 0.9, "stance": 0.9, "concern": 0.9, "mentions_risk": 0.9}
+    items = [Classified(text="a", labels=fact, confidence=conf), Classified(text="b", labels=fire, confidence=conf)]
+    assert compute_opposition_index(items)[1] == ["fire safety"]
+
+
 def test_opposition_index_mixed_coverage():
     """Verify 2 against at 0.9 and 1 supportive at 0.6 give index > 0.5."""
     items = [

@@ -134,7 +134,7 @@ async def test_heuristic_labels_and_confidences_are_unchanged(monkeypatch):
     results = await classify(TEXTS, ParagraphLabels)  # no Modal, no model
     first, second = results
     assert first.labels == ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True)
-    assert second.labels == ParagraphLabels(relevant=True, stance="supportive", concern="land use", mentions_risk=False)
+    assert second.labels == ParagraphLabels(relevant=True, stance="supportive", concern="no concern raised", mentions_risk=False)
     assert first.confidence == {"relevant": 0.85, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75}
 
 
