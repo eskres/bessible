@@ -7,13 +7,20 @@ import asyncio
 from pydantic import HttpUrl
 
 from bessible.finance import load_finance_assumptions
-from bessible.finance.cost import CostBreakdown, cost
+from bessible.finance.cost import VOLTAGE_132KV, CostBreakdown, cost
 from bessible.finance.curtailment import curtailment_pct, load_demand_profile, load_duration_curve
 from bessible.finance.returns import returns
 from bessible.market.stack import total
 from bessible.models import Artifact, DurationCase, FinancialInput, FinancialOutput
 
 CROSSING_KEYWORDS = ("crossing", "railway", "rail", "river", "road", "canal", "hard surface")
+
+
+def _gbp_short(value: float) -> str:
+    """Format pounds as £154k or £2.119m."""
+    if value >= 1_000_000:
+        return f"£{value / 1_000_000:g}m"
+    return f"£{value / 1000:g}k"
 
 
 def _detect_crossings(inp: FinancialInput) -> bool:
@@ -82,7 +89,8 @@ async def financial_model(inp: FinancialInput) -> FinancialOutput:
     )
 
     volt_label = f"{int(voltage_kv)} kV" if voltage_kv else "33 kV"
-    rate_str = "£1.25m-£2m/km" if voltage_kv == 132 else "£500k-£700k/km"
+    cable_low, cable_high = a.pair("cable_132kv_gbp_per_km" if voltage_kv == VOLTAGE_132KV else "cable_33kv_gbp_per_km")
+    rate_str = f"{_gbp_short(cable_low)}-{_gbp_short(cable_high)}/km"
 
     art_cost = Artifact(
         id=f"financial-cost-{inp.run_id[:8]}",
