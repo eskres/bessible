@@ -12,7 +12,7 @@ from pydantic_ai.models.test import TestModel
 
 from bessible import classifier
 from bessible.classifier import ClassifierError, classify
-from bessible.suitability.labels import ParagraphLabels
+from bessible.suitability.labels import COMMUNITY, REPORTER, ParagraphLabels
 
 TEXTS = ["Residents object to the battery fire risk.", "Council welcomes the green energy scheme."]
 
@@ -133,9 +133,13 @@ async def test_heuristic_labels_and_confidences_are_unchanged(monkeypatch):
     disable_modal(monkeypatch)
     results = await classify(TEXTS, ParagraphLabels)  # no Modal, no model
     first, second = results
-    assert first.labels == ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True)
-    assert second.labels == ParagraphLabels(relevant=True, stance="supportive", concern="no concern raised", mentions_risk=False)
-    assert first.confidence == {"relevant": 0.85, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75}
+    assert first.labels == ParagraphLabels(
+        relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True
+    )
+    assert second.labels == ParagraphLabels(
+        relevant=True, voice=REPORTER, stance="supportive", concern="no concern raised", mentions_risk=False
+    )
+    assert first.confidence == {"relevant": 0.85, "voice": 0.6, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75}
 
 
 @pytest.mark.anyio

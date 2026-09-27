@@ -7,12 +7,20 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 NO_CONCERN = "no concern raised"
+COMMUNITY = "residents, campaigners or councillors"
+DEVELOPER = "the developer or its consultants"  # its own statements are not local sentiment
+REPORTER = "a reporter or official stating facts"
 
 
 class ParagraphLabels(BaseModel):
     """Labels assigned to one paragraph by the typed classifier."""
 
     relevant: bool = Field(description="The text is about an energy project or infrastructure near a local community.")
+    voice: Literal[
+        "residents, campaigners or councillors",
+        "the developer or its consultants",
+        "a reporter or official stating facts",
+    ] = Field(description="Whose view does the text give?")
     # Measured on real news paragraphs with the Modal classifier: "The text's attitude to the project" called plain
     # reports of plans supportive; this wording leaves them neutral and keeps clear objections and support.
     stance: Literal["against", "neutral", "supportive"] = Field(

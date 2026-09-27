@@ -11,7 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from bessible.classifier import Classified
+from bessible.classifier import Classified, _classify_heuristic
 from bessible.config import settings
 from bessible.location import Agentic, Coordinates, Deterministic, Locality, LocationData
 from bessible.location.transform import search_terms
@@ -38,7 +38,7 @@ from bessible.stages.sentiment import local_sentiment
 from bessible.stages.synthesis import synthesise
 from bessible.suitability.assumptions import load_finance_assumptions
 from bessible.suitability.finance import evaluate
-from bessible.suitability.labels import ParagraphLabels
+from bessible.suitability.labels import COMMUNITY, DEVELOPER, REPORTER, ParagraphLabels
 from bessible.suitability.research import (
     KEYWORD_SELECTOR,
     cache_key,
@@ -57,18 +57,39 @@ def test_paragraph_labels_schema():
     from bessible.classifier import _questions
 
     questions = _questions(ParagraphLabels)
-    assert len(questions) == 4
+    assert len(questions) == 5
     types = {q["type"] for q in questions}
     assert "noul" in types
     assert "choice" in types
 
 
 def test_paragraphs_that_raise_no_concern_add_no_concern():
-    fact = ParagraphLabels(relevant=True, stance="neutral", concern="no concern raised", mentions_risk=False)
-    fire = ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True)
+    fact = ParagraphLabels(
+        relevant=True, voice=COMMUNITY, stance="neutral", concern="no concern raised", mentions_risk=False
+    )
+    fire = ParagraphLabels(relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True)
     conf = {"relevant": 0.9, "stance": 0.9, "concern": 0.9, "mentions_risk": 0.9}
     items = [Classified(text="a", labels=fact, confidence=conf), Classified(text="b", labels=fire, confidence=conf)]
     assert compute_opposition_index(items)[1] == ["fire safety"]
+
+
+def test_developer_statements_do_not_count_towards_the_index():
+    conf = {"relevant": 0.9, "voice": 0.9, "stance": 0.9, "concern": 0.9, "mentions_risk": 0.9}
+    against = ParagraphLabels(relevant=True, voice=COMMUNITY, stance="against", concern="noise", mentions_risk=False)
+    pitch = ParagraphLabels(relevant=True, voice=DEVELOPER, stance="supportive", concern="ecology", mentions_risk=False)
+    items = [Classified(text="a", labels=against, confidence=conf), Classified(text="b", labels=pitch, confidence=conf)]
+    assert compute_opposition_index(items) == (
+        1.0,
+        ["noise"],
+    )  # the developer's pitch neither lowers it nor adds ecology
+    assert compute_opposition_index(items[1:]) == (None, [])
+
+
+def test_heuristic_voice():
+    texts = ["The developer said the battery site would power 20,000 homes.", "Residents object to the battery site."]
+    developer, residents = _classify_heuristic(texts, ParagraphLabels)
+    assert developer.labels.voice == DEVELOPER
+    assert residents.labels.voice == COMMUNITY
 
 
 def test_opposition_index_mixed_coverage():
@@ -76,17 +97,23 @@ def test_opposition_index_mixed_coverage():
     items = [
         Classified(
             text="Residents object over fire hazard",
-            labels=ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True
+            ),
             confidence={"relevant": 1.0, "stance": 0.9, "concern": 0.9},
         ),
         Classified(
             text="Second objection over fire safety",
-            labels=ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True
+            ),
             confidence={"relevant": 1.0, "stance": 0.9, "concern": 0.85},
         ),
         Classified(
             text="Local group supports green transition",
-            labels=ParagraphLabels(relevant=True, stance="supportive", concern="ecology", mentions_risk=False),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="supportive", concern="ecology", mentions_risk=False
+            ),
             confidence={"relevant": 1.0, "stance": 0.6, "concern": 0.7},
         ),
     ]
@@ -103,7 +130,9 @@ def test_opposition_index_no_relevant():
     items = [
         Classified(
             text="Flower festival in town center",
-            labels=ParagraphLabels(relevant=False, stance="neutral", concern="other", mentions_risk=False),
+            labels=ParagraphLabels(
+                relevant=False, voice=REPORTER, stance="neutral", concern="other", mentions_risk=False
+            ),
             confidence={"relevant": 0.95, "stance": 0.5, "concern": 0.5},
         )
     ]

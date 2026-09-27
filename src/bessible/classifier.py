@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field, create_model
 from pydantic_ai import Agent, ModelRetry
 
 from bessible.config import settings
-from bessible.suitability.labels import NO_CONCERN, ParagraphLabels
+from bessible.suitability.labels import COMMUNITY, DEVELOPER, NO_CONCERN, REPORTER, ParagraphLabels
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -207,8 +207,15 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
             if is_against
             else NO_CONCERN
         )
+        if any(w in low for w in ("the developer", "we are proposing", "we have proposed", "proposing to develop")):
+            voice = DEVELOPER
+        elif any(w in low for w in ("resident", "campaign", "objector", "neighbour", "councillor", "parish council")):
+            voice = COMMUNITY
+        else:
+            voice = REPORTER
         labels = ParagraphLabels(
             relevant=is_relevant,
+            voice=voice,
             stance=stance,
             concern=concern,
             mentions_risk="fire" in low or "danger" in low or "runaway" in low,
@@ -217,7 +224,7 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
             Classified[T](
                 text=p,
                 labels=cast("T", labels),
-                confidence={"relevant": 0.85, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75},
+                confidence={"relevant": 0.85, "voice": 0.6, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75},
                 model=HEURISTIC_NAME,
             )
         )

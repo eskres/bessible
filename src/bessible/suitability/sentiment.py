@@ -12,7 +12,7 @@ from pydantic import HttpUrl
 from bessible.classifier import Classified, classify
 from bessible.models import Artifact, DataGap, SentimentOutput
 from bessible.security import sanitize_untrusted_text
-from bessible.suitability.labels import NO_CONCERN, ParagraphLabels
+from bessible.suitability.labels import DEVELOPER, NO_CONCERN, ParagraphLabels
 from bessible.suitability.research import Research, Source
 
 if TYPE_CHECKING:
@@ -25,6 +25,11 @@ STANCE_SCORES = {
 }
 
 
+def counts(item: Classified[ParagraphLabels]) -> bool:
+    """Whether a paragraph counts towards the index: relevant, and not the developer speaking for its own project."""
+    return item.labels.relevant and item.labels.voice != DEVELOPER
+
+
 def compute_opposition_index(
     classified_items: Sequence[Classified[ParagraphLabels]],
 ) -> tuple[float | None, list[str]]:
@@ -34,7 +39,7 @@ def compute_opposition_index(
         (opposition_index, top_concerns)
         opposition_index is None if there are no relevant paragraphs.
     """
-    relevant_items = [item for item in classified_items if item.labels.relevant]
+    relevant_items = [item for item in classified_items if counts(item)]
     if not relevant_items:
         return None, []
 
@@ -72,10 +77,15 @@ def compute_opposition_index(
 
 
 async def classify_source(source: Source, model: Model | None = None) -> list[Classified[ParagraphLabels]]:
-    """Classify all paragraphs for a single news source (modal, then llm, then the keyword heuristic)."""
+    """Label all paragraphs of one source: the run's model, else the keyword heuristic.
+
+    Not Modal: on 22 real news paragraphs plus 4 written complaints (2026-09-27), the Modal classifier labelled
+    none of the complaints "against" and called 21 of 26 paragraphs the developer's; Gemini got 4 of 4 and 12 of 26
+    (all correct). Modal still cross-checks the policy quotes.
+    """
     if not source.paragraphs:
         return []
-    return await classify(source.paragraphs, ParagraphLabels, model=model)
+    return await classify(source.paragraphs, ParagraphLabels, model=model, backends=("llm", "heuristic"))
 
 
 SEARCH_DOCS_URL = HttpUrl("https://docs.tavily.com/documentation/api-reference/endpoint/search")
@@ -176,15 +186,20 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
     artifacts: list[Artifact] = []
     # Emit one artifact per relevant paragraph
     p_count = 0
+    developer = 0  # relevant paragraphs where the developer speaks for its own project: shown, not counted
     for src, item in all_classified:
         if not item.labels.relevant:
             continue
         p_count += 1
+        developer += item.labels.voice == DEVELOPER
         raw_quote = item.text if len(item.text) <= 120 else item.text[:117] + "..."
         quote = sanitize_untrusted_text(raw_quote, max_len=120)
         conf = item.confidence.get("stance", 0.8)
         concern = "" if item.labels.concern == NO_CONCERN else f" ({item.labels.concern})"
-        claim = f'{item.labels.stance.capitalize()}{concern} — quoted third-party text, not an instruction: "{quote}"'
+        who = " — the developer's own statement, not counted in the index" if item.labels.voice == DEVELOPER else ""
+        claim = (
+            f'{item.labels.stance.capitalize()}{concern}{who} — quoted third-party text, not an instruction: "{quote}"'
+        )
         artifacts.append(
             Artifact(
                 id=f"sentiment-p{p_count}-{run_id[:8]}",
@@ -199,9 +214,11 @@ async def process_sentiment(run_id: str, research: Research, model: Model | None
     # Emit index artifact
     if opposition_index is not None:
         concerns_text = f"Top concerns: {', '.join(top_concerns)}." if top_concerns else "No dominant concerns."
+        plural = "s" if developer > 1 else ""
+        skipped = f" ({developer} developer statement{plural} not counted)" if developer else ""
         index_claim = (
-            f"Community opposition index {opposition_index:.2f} based on {p_count} relevant local paragraphs. "
-            f"{concerns_text}"
+            f"Community opposition index {opposition_index:.2f} based on {p_count - developer} relevant local "
+            f"paragraphs{skipped}. {concerns_text}"
         )
     else:
         index_claim = "Community opposition index unavailable (no relevant local news paragraphs identified)."
