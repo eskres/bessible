@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING
 
-from .models import Check, Fact, Outcome, PossibilityReport, Proposal
+from .models import Check, Fact, Limits, Outcome, PossibilityReport, Proposal
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -126,6 +126,8 @@ def _clear_of(kinds: tuple[str, ...], name: str, proposal: Proposal) -> Check:
     if not _designations_cover(proposal):
         return result("unknown", "Designations not assessed (England only).")
     on_site = [d for d in proposal.location.deterministic.designations if d.kind in kinds and d.on_site]
+    if not on_site and _failed(proposal, DESIGNATION_SOURCES):
+        return result("unknown", f"None found on the title ({', '.join(kinds)}), but not every layer answered.")
     if not on_site:
         return result("pass", f"None on the title ({', '.join(kinds)}).")
     covered_pct, limit = max(map(_covered_pct, on_site)), proposal.limits.max_protected_pct
@@ -216,6 +218,23 @@ HARD_CHECKS: tuple[Callable[[Proposal], Check], ...] = (
 )
 
 
+# The checks that can fail, i.e. whose missing data could be hiding a blocker. The others can only warn.
+CAN_BLOCK = frozenset({
+    "enough_area",
+    "buildable_slope",
+    "outside_flood_zone_3",
+    "clear_of_protected_ecology",
+    "clear_of_protected_heritage",
+    "clear_of_protected_landscape",
+    "substation_within_reach",
+})
+
+
+def can_block(name: str, limits: Limits) -> bool:
+    """Whether a check of this name could fail under these limits (headroom blocks only when asked to)."""
+    return name in CAN_BLOCK or (name == "grid_headroom" and limits.min_headroom_mw > 0)
+
+
 def assess(proposal: Proposal) -> PossibilityReport:
     checks = [check(proposal) for check in HARD_CHECKS]
     blockers = [c.reason for c in checks if c.outcome == "fail"]
@@ -250,8 +269,13 @@ def _check(
         reason=reason,
         facts=rounded,
         source_urls=urls + [u for u in attempted if u not in urls],
+        failed_sources=_failed(proposal, sources),
         confidence=UNKNOWN_CONFIDENCE,
     )
+
+
+def _failed(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:
+    return [s.name for s in proposal.location.sources if s.status == "failed" and s.name.startswith(prefixes)]
 
 
 def _source_urls(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:

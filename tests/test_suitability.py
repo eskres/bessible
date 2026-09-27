@@ -13,6 +13,7 @@ from bessible.models import (
     AssessmentRequest,
     CapacityOutput,
     ConfirmedSite,
+    DataGap,
     DurationCase,
     FinancialInput,
     FinancialOutput,
@@ -296,4 +297,24 @@ def test_decide_land_blockers_and_caveats():
     assert "0.02" in rules[0]
     caveated = SiteLandOutput(land_use="x", caveats=["Median slope 6.8% (limit 10%), relief 1.65 m."])
     assert decide(fin, sent, caveated)[0] == "maybe"
-    assert decide(fin, sent, SiteLandOutput(land_use="x", not_assessed=["outside_green_belt: ..."]))[0] == "go"
+    minor = DataGap(stage="site_land", what="avoids_best_farmland", reason="Grade 3 not split.")
+    assert decide(fin, sent, SiteLandOutput(land_use="x", gaps=[minor]))[0] == "go"
+    material = DataGap(stage="site_land", what="outside_flood_zone_3", reason="EA failed.", could_block=True)
+    verdict, rules = decide(fin, sent, SiteLandOutput(land_use="x", gaps=[material]))
+    assert verdict == "maybe"
+    assert "outside_flood_zone_3" in rules[0]
+    both = SiteLandOutput(land_use="x", blockers=["Too small."], gaps=[material])
+    assert decide(fin, sent, both)[0] == "no_go"  # a known blocker decides, whatever else is missing
+
+
+def test_report_labels_each_gap():
+    from bessible.stages.synthesis import _gap_lines
+
+    lines = _gap_lines([
+        DataGap(stage="site_land", what="outside_flood_zone_3", reason="EA failed.", retryable=True, could_block=True),
+        DataGap(stage="site_land", what="avoids_best_farmland", reason="Grade 3 not split."),
+    ])
+    assert "## Data Gaps" in lines
+    assert any("temporary, retry may fix; could hide a blocker" in ln for ln in lines)
+    assert any("avoids_best_farmland** (no coverage here)" in ln for ln in lines)
+    assert _gap_lines([]) == []

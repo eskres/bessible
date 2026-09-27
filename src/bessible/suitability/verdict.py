@@ -68,6 +68,11 @@ def decide(
 
     # Check for MAYBE conditions
     is_maybe = False
+    if land and (unchecked := [g for g in land.gaps if g.could_block]):
+        names = ", ".join(g.what for g in unchecked)
+        rule_lines.append(f"CAUTION: Site land not fully assessed ({names}): a blocker cannot be ruled out.")
+        is_maybe = True
+
     if land and land.caveats:
         rule_lines.append(f"CAUTION: Site land caveat: {land.caveats[0].rstrip('.')}.")
         is_maybe = True

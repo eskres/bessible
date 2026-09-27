@@ -53,6 +53,9 @@ class Check(BaseModel):
     reason: str = Field(description="One sentence a person can read, with the figures that decided it.")
     facts: dict[str, Fact] = Field(default_factory=dict, description="The measured values and limits compared.")
     source_urls: list[str] = Field(default_factory=list, description="The upstream requests the facts came from.")
+    failed_sources: list[str] = Field(
+        default_factory=list, description="Upstream sources this check needed that failed (a retry may fill them)."
+    )
     produced_by: str = Field(default="deterministic rule", description="The rule or model that decided the outcome.")
     confidence: float = Field(default=0.95, ge=0, le=1, description="How far to trust the outcome.")
 

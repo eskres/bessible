@@ -117,7 +117,12 @@ async def test_title_and_analysis_stages():
         assert "ukpn-gsp-project-status" in art.claim
         assert "2026-09-19" in art.claim
 
-    land = await site_land(node_in)
+    from unittest.mock import patch
+
+    from tests.possibility.test_hard import good_site
+
+    with patch("bessible.stages.site_land.collate", return_value=good_site()):  # offline: a clear, known site
+        land = await site_land(node_in)
     market = await market_revenue(node_in)
 
     fin = await financial_model(

@@ -84,6 +84,17 @@ class AssessmentRequest(BaseModel):
         return self
 
 
+class DataGap(BaseModel):
+    """Evidence a stage could not get: what is missing, why, and whether trying again could fill it."""
+
+    stage: Stage
+    what: str = Field(description="The check or figure left without data, e.g. 'outside_flood_zone_3'.")
+    reason: str
+    sources: list[str] = Field(default_factory=list, description="Upstream sources that failed.")
+    retryable: bool = Field(default=False, description="A source failed, so a retry may fill it (else no coverage).")
+    could_block: bool = Field(default=False, description="The missing evidence could have ruled the site out.")
+
+
 class Artifact(BaseModel):
     """Explainable AI artifact supporting a claim or decision."""
 
@@ -267,6 +278,7 @@ class GridOutput(BaseModel):
     gate2_queue_position: int | None = None
     indicative_connection_months: int | None = None
     artifacts: list[Artifact] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list)
 
 
 class SiteLandOutput(BaseModel):
@@ -276,7 +288,7 @@ class SiteLandOutput(BaseModel):
     constraints: list[str] = Field(default_factory=list)
     blockers: list[str] = Field(default_factory=list, description="Hard-check failures: cannot be built here.")
     caveats: list[str] = Field(default_factory=list, description="Hard-check warnings: possible with a caveat.")
-    not_assessed: list[str] = Field(default_factory=list, description="Checks with no data, and why.")
+    gaps: list[DataGap] = Field(default_factory=list, description="Checks with no data, and why.")
     artifacts: list[Artifact] = Field(default_factory=list)
 
 
@@ -302,6 +314,7 @@ class MarketOutput(BaseModel):
     streams: dict[str, float] = Field(default_factory=dict)
     by_duration: dict[int, list[StreamValue]] | None = None
     artifacts: list[Artifact] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list)
 
 
 class FinancialInput(NodeInput):
@@ -421,6 +434,7 @@ class SentimentOutput(BaseModel):
     sources: int = 0
     paragraphs: int = 0
     artifacts: list[Artifact] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list)
 
 
 class SynthesisInput(NodeInput):
@@ -476,4 +490,6 @@ class AssessmentResult(BaseModel):
     site: ConfirmedSite | None = None  # the site the user confirmed; the report's MW and MWh come from it
     capacity: CapacityOutput | None = None
     artifacts: list[Artifact] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list, description="Every stage's missing evidence.")
+    retries_left: int = 0
     run_dir: str

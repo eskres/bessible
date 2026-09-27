@@ -356,5 +356,6 @@ class AssessmentWorkflow:
             site=site,
             capacity=self._capacity,
             artifacts=all_artifacts,
+            gaps=[g for out in (analysis[0], analysis[1], analysis[2], analysis[5]) for g in out.gaps],
             run_dir=f"out/{run_id}",
         )
