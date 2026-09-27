@@ -1,0 +1,18 @@
+{
+ "text": "We objected to the two local developments listed below pending consideration. For both developments we have engaged with the developers and encouraged them to consult with local residents as widely as possible. Our objections have primarily been on acoustic, safety and environmental concerns in the build, operation and decommissioning of solar farms and battery storage. We are engaging with Kingsway and the National Grid to try and find out as much information as possible.",
+ "labels": {
+  "relevant": true,
+  "voice": "residents, campaigners or councillors",
+  "stance": "against",
+  "concern": "noise",
+  "mentions_risk": true
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.98,
+  "concern": 0.7,
+  "mentions_risk": 0.75
+ },
+ "model": "gemini-3.8-flash"
+}

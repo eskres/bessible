@@ -108,6 +108,7 @@ ignore = [
     "line-too-long",
     "ambiguous-unicode-character-string",
 ]
+"scripts/news_research.py" = ["print", "implicit-namespace-package"]  # a command-line script
 "test_*" = [
     "ANN",
     "D",

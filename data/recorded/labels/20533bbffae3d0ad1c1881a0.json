@@ -1,0 +1,18 @@
+{
+ "text": "Critics question the necessity of placing the facility adjacent to Ashtead Common when closer alternatives to the Chessington substation could reduce environmental impact and energy loss. They argue that the benefits outlined by the developer are generic to any BESS project and fail to justify the chosen location​.",
+ "labels": {
+  "relevant": true,
+  "voice": "residents, campaigners or councillors",
+  "stance": "against",
+  "concern": "land use",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.99,
+  "concern": 0.9,
+  "mentions_risk": 0.9
+ },
+ "model": "gemini-3.8-flash"
+}

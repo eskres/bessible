@@ -38,11 +38,15 @@ class Settings(BaseSettings):
     os_api_key: SecretStr | None = None  # osdatahub.os.uk (Ordnance Survey maps)
     # Server key for the Google Routes API (cable routes). Not the browser Maps key. Tests unset it to stay offline.
     google_routes_api_key: SecretStr | None = None
+    # Operator-side Tavily key for the local news search (a data source, like UKPN_API_KEY; never per user).
+    # Tests unset it to stay offline.
+    tavily_api_key: SecretStr | None = None
 
     # Outside the bundled (Dorking-only) UKPN snapshot, look up live DNO headroom. Tests turn it off to stay offline.
     live_capacity: bool = True
 
     data_dir: Path = Path(__file__).resolve().parents[2] / "data"  # committed fixtures and UKPN snapshot
+    cache_dir: Path = Path(__file__).resolve().parents[2] / "out" / "cache"  # live API responses; gitignored
 
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"

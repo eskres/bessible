@@ -1,0 +1,18 @@
+{
+ "text": "The battery storage units will be built close to nearby solar farms and will store energy at off-peak times, which can then be used when there is more demand on the National Grid.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.95,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

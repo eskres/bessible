@@ -1,0 +1,18 @@
+{
+ "text": "A planning application has now been made for MoleValley District Council to decide if Green Belt land next to the A243 near junction 9 M25 can be used for an energy storage facility that would be linked to the National Grid.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.98,
+  "concern": 0.9,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

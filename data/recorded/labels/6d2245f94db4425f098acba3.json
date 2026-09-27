@@ -1,0 +1,18 @@
+{
+ "text": "It will also include an approximate 14km Grid Connection to National Grid’s planned Burwell South substation, to be located to the south of the existing substation at Burwell.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.85,
+  "stance": 0.98,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import json
 import tempfile
+from datetime import date
 from pathlib import Path
 
+import httpx
 import pytest
+from pydantic import SecretStr
 
-from bessible.classifier import Classified
+from bessible import classifier
+from bessible.classifier import Classified, _classify_heuristic
+from bessible.config import settings
+from bessible.location import Agentic, Coordinates, Deterministic, Locality, LocationData
+from bessible.location.transform import search_terms
 from bessible.models import (
     AssessmentRequest,
     CapacityOutput,
@@ -32,8 +39,17 @@ from bessible.stages.sentiment import local_sentiment
 from bessible.stages.synthesis import synthesise
 from bessible.suitability.assumptions import load_finance_assumptions
 from bessible.suitability.finance import evaluate
-from bessible.suitability.labels import ParagraphLabels
-from bessible.suitability.research import research_local_news
+from bessible.suitability.labels import COMMUNITY, DEVELOPER, REPORTER, ParagraphLabels
+from bessible.suitability.research import (
+    KEYWORD_SELECTOR,
+    Source,
+    cache_key,
+    is_local,
+    news_queries,
+    research_local_news,
+    search_request,
+    verbatim,
+)
 from bessible.suitability.sentiment import compute_opposition_index
 from bessible.suitability.verdict import check_numbers, decide
 
@@ -43,10 +59,52 @@ def test_paragraph_labels_schema():
     from bessible.classifier import _questions
 
     questions = _questions(ParagraphLabels)
-    assert len(questions) == 4
+    assert len(questions) == 5
     types = {q["type"] for q in questions}
     assert "noul" in types
     assert "choice" in types
+
+
+def test_paragraphs_that_raise_no_concern_add_no_concern():
+    fact = ParagraphLabels(
+        relevant=True, voice=COMMUNITY, stance="neutral", concern="no concern raised", mentions_risk=False
+    )
+    fire = ParagraphLabels(relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True)
+    conf = {"relevant": 0.9, "stance": 0.9, "concern": 0.9, "mentions_risk": 0.9}
+    items = [Classified(text="a", labels=fact, confidence=conf), Classified(text="b", labels=fire, confidence=conf)]
+    assert compute_opposition_index(items)[1] == ["fire safety"]
+
+
+def test_developer_statements_do_not_count_towards_the_index():
+    conf = {"relevant": 0.9, "voice": 0.9, "stance": 0.9, "concern": 0.9, "mentions_risk": 0.9}
+    against = ParagraphLabels(relevant=True, voice=COMMUNITY, stance="against", concern="noise", mentions_risk=False)
+    pitch = ParagraphLabels(relevant=True, voice=DEVELOPER, stance="supportive", concern="ecology", mentions_risk=False)
+    items = [Classified(text="a", labels=against, confidence=conf), Classified(text="b", labels=pitch, confidence=conf)]
+    assert compute_opposition_index(items) == (
+        1.0,
+        ["noise"],
+    )  # the developer's pitch neither lowers it nor adds ecology
+    assert compute_opposition_index(items[1:]) == (None, [])
+
+
+def test_heuristic_voice():
+    texts = ["The developer said the battery site would power 20,000 homes.", "Residents object to the battery site."]
+    developer, residents = _classify_heuristic(texts, ParagraphLabels)
+    assert developer.labels.voice == DEVELOPER
+    assert residents.labels.voice == COMMUNITY
+
+
+def test_heuristic_concerns_include_heritage_and_process():
+    texts = [
+        "Objectors say the battery site would harm the setting of a listed building.",
+        "Residents object that the consultation on the solar farm was rushed.",
+        "Residents object to the battery site on farmland.",
+    ]
+    assert [r.labels.concern for r in _classify_heuristic(texts, ParagraphLabels)] == [
+        "heritage",
+        "consultation or process",
+        "land use",
+    ]
 
 
 def test_opposition_index_mixed_coverage():
@@ -54,17 +112,23 @@ def test_opposition_index_mixed_coverage():
     items = [
         Classified(
             text="Residents object over fire hazard",
-            labels=ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True
+            ),
             confidence={"relevant": 1.0, "stance": 0.9, "concern": 0.9},
         ),
         Classified(
             text="Second objection over fire safety",
-            labels=ParagraphLabels(relevant=True, stance="against", concern="fire safety", mentions_risk=True),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="against", concern="fire safety", mentions_risk=True
+            ),
             confidence={"relevant": 1.0, "stance": 0.9, "concern": 0.85},
         ),
         Classified(
             text="Local group supports green transition",
-            labels=ParagraphLabels(relevant=True, stance="supportive", concern="ecology", mentions_risk=False),
+            labels=ParagraphLabels(
+                relevant=True, voice=COMMUNITY, stance="supportive", concern="ecology", mentions_risk=False
+            ),
             confidence={"relevant": 1.0, "stance": 0.6, "concern": 0.7},
         ),
     ]
@@ -81,7 +145,9 @@ def test_opposition_index_no_relevant():
     items = [
         Classified(
             text="Flower festival in town center",
-            labels=ParagraphLabels(relevant=False, stance="neutral", concern="other", mentions_risk=False),
+            labels=ParagraphLabels(
+                relevant=False, voice=REPORTER, stance="neutral", concern="other", mentions_risk=False
+            ),
             confidence={"relevant": 0.95, "stance": 0.5, "concern": 0.5},
         )
     ]
@@ -201,18 +267,322 @@ def test_number_guard_verification():
     assert unmatched_good == []
 
 
+DORKING = LocationData(
+    coords=Coordinates(lat=51.2329, lon=-0.3315),
+    deterministic=Deterministic(
+        locality=Locality(place="Dorking", district="Mole Valley", planning_authority="Mole Valley")
+    ),
+    agentic=Agentic(search_terms=["Dorking", "Mole Valley", "Surrey"]),
+)
+PAGE_TEXT = (
+    "Dorking battery plan\n\n"
+    "Residents in Dorking have objected to a 40MW battery storage site on farmland north of the town, citing fire risk.\n"
+    "Mole Valley District Council will decide the planning application for the battery scheme next month.\n"
+    "Sign up to our newsletter for the latest stories from across Surrey and beyond every day.\n"
+)
+US_TEXT = "Residents in Austin have objected to a 40MW battery storage site on farmland north of the city.\n"
+
+
+def _tavily_body(
+    url: str = "https://www.example.co.uk/news/dorking-battery", text: str = PAGE_TEXT
+) -> dict[str, object]:
+    """A Search API body in the wire shape, for unit tests of the logic around it (not a recorded response)."""
+    return {
+        "query": "Dorking battery storage BESS planning application",
+        "answer": None,
+        "images": [],
+        "results": [
+            {"title": "Dorking battery plan", "url": url, "content": "Residents...", "score": 0.8, "raw_content": text},
+            {
+                "title": "US story",
+                "url": "https://example.com/us",
+                "content": "x",
+                "score": 0.9,
+                "raw_content": US_TEXT,
+            },
+        ],
+        "response_time": 1.2,
+        "usage": {"credits": 1},
+        "request_id": "test",
+    }
+
+
+def _tavily_client(status: int = 200, calls: list[str] | None = None) -> httpx.AsyncClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if calls is not None:
+            calls.append(json.loads(request.content)["query"])
+        if status != 200:
+            return httpx.Response(status, json={"detail": {"error": "boom"}})
+        return httpx.Response(200, json=_tavily_body())
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def _client_with_extract(extract: httpx.Response, paths: list[str]) -> httpx.AsyncClient:
+    """Search answers one UK result without page text; Extract answers with `extract`."""
+    no_text = {
+        "title": "Dorking battery plan",
+        "url": "https://www.example.co.uk/news/no-text",
+        "content": "x",
+        "score": 0.7,
+        "raw_content": None,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/extract":
+            return extract
+        return httpx.Response(200, json={**_tavily_body(), "results": [no_text]})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
 @pytest.mark.anyio
-async def test_cached_news_research():
-    """Verify research agent reads cached news fixture without searching."""
-    res = await research_local_news(
-        place="Dorking",
-        lat=51.2329,
-        lon=-0.3315,
-        postcode="RH4 1AD",
+async def test_uk_results_without_text_are_fetched_with_extract(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    body = {
+        "results": [
+            {"url": "https://www.example.co.uk/news/no-text", "title": "t", "raw_content": PAGE_TEXT, "images": []}
+        ],
+        "failed_results": [],
+        "response_time": 1.0,
+        "usage": {"credits": 1},
+        "request_id": "test",
+    }
+    paths: list[str] = []
+    research = await research_local_news(
+        DORKING, client=_client_with_extract(httpx.Response(200, json=body), paths), today=date(2026, 9, 27)
     )
-    assert res.cached is True
-    assert len(res.sources) >= 1
-    assert any("getsurrey.co.uk" in str(s.url) for s in res.sources)
+    assert paths.count("/extract") == 1  # one call for every page without text
+    assert research.extracted == 1
+    assert research.credits == len(research.queries) + 1
+    assert len(research.responses) == len(research.queries) + 1  # --record copies the extract answer too
+    assert [str(s.url) for s in research.sources] == ["https://www.example.co.uk/news/no-text"]
+    assert all(verbatim(q, PAGE_TEXT) for q in research.sources[0].paragraphs)
+
+
+@pytest.mark.anyio
+async def test_a_failed_extract_leaves_the_search_results(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    boom = httpx.Response(500, json={"detail": {"error": "boom"}})
+    research = await research_local_news(DORKING, client=_client_with_extract(boom, []), today=date(2026, 9, 27))
+    assert research.status == "searched"
+    assert research.extracted == 0
+    assert not research.sources
+
+
+def test_news_queries_come_from_location_data():
+    queries = news_queries(DORKING)
+    assert 1 <= len(queries) <= 4
+    assert queries[0].text.startswith("Dorking ")
+    assert queries[0].scope == "place"
+    assert any(q.scope == "district" and "Mole Valley" in q.text for q in queries)
+    assert all(len(q.text) <= 400 for q in queries)
+
+
+def test_council_queries_cover_the_district_and_the_county():
+    where = DORKING.deterministic.locality.model_copy(update={"county": "Surrey"})
+    location = DORKING.model_copy(
+        update={"deterministic": DORKING.deterministic.model_copy(update={"locality": where})}
+    )
+    queries = news_queries(location)
+    assert [q.scope for q in queries] == ["place", "place", "district", "county"]
+    assert "Surrey county council" in queries[3].text
+    assert queries[0].rule() == "projects within about 10 km of Dorking"
+    assert queries[3].rule() == "projects anywhere in Surrey (county council area)"
+
+
+def test_news_queries_skip_unparished_areas_and_wards_named_after_the_place():
+    where = DORKING.deterministic.locality.model_copy(update={"parish": "Mole Valley, unparished area"})
+    terms = search_terms(where)
+    assert not any("unparished" in t for t in terms)
+    location = DORKING.model_copy(
+        update={"agentic": DORKING.agentic.model_copy(update={"search_terms": ["Dorking", "Dorking North", *terms]})}
+    )
+    queries = news_queries(location)
+    assert len(queries) == 4
+    assert not any("unparished" in q.text or "Dorking North" in q.text for q in queries)
+
+
+def test_non_uk_hosts_count_only_when_they_name_the_area():
+    names = ["Dorking", "Mole Valley"]
+    assert is_local("https://www.example.co.uk/x", "", names)
+    assert is_local("https://newleatherheadliving.wordpress.com/x", "Dorking ... Mole Valley District Council", names)
+    assert not is_local("https://www.barbadosparliament.com/x.pdf", "one mention of Dorking", names)
+    assert not is_local("https://example.edu/cell.pdf", "Histone H3 and histone H4", ["Histon"])  # whole words only
+
+
+def test_verbatim_normalises_whitespace_only():
+    assert verbatim("Residents in  Dorking\nhave objected", PAGE_TEXT)
+    assert not verbatim("Residents in Dorking objected", PAGE_TEXT)  # a paraphrase
+    assert not verbatim("", PAGE_TEXT)
+
+
+@pytest.mark.anyio
+async def test_no_key_is_not_configured_not_no_coverage():
+    from bessible.suitability.sentiment import process_sentiment
+
+    calls: list[str] = []
+    research = await research_local_news(DORKING, client=_tavily_client(calls=calls))
+    assert calls == []  # no key, no request
+    assert research.status == "not_configured"
+    assert research.queries  # what would have been searched is still recorded
+    out = await process_sentiment("run-12345678", research)
+    assert out.opposition_index is None
+    assert "not configured" in out.artifacts[0].claim
+    assert "No relevant" not in out.artifacts[0].claim
+    assert out.artifacts[0].confidence < 0.5
+    assert out.artifacts[0].model_used == "none"
+    assert out.gaps
+    assert out.gaps[0].what == "local_news"
+
+
+@pytest.mark.anyio
+async def test_failed_news_search_is_a_retryable_gap_not_no_coverage(monkeypatch: pytest.MonkeyPatch):
+    from bessible.suitability.sentiment import process_sentiment
+
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    research = await research_local_news(DORKING, client=_tavily_client(status=500))
+    assert research.status == "failed"
+    assert research.retryable
+    out = await process_sentiment("run-12345678", research)
+    assert out.opposition_index is None
+    assert out.gaps[0].retryable
+    assert "not assessed" in out.artifacts[0].claim
+    assert out.artifacts[0].confidence < 0.5
+
+
+@pytest.mark.anyio
+async def test_live_search_keeps_uk_pages_and_verbatim_paragraphs_then_caches(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    calls: list[str] = []
+    today = date(2026, 9, 27)
+    research = await research_local_news(DORKING, client=_tavily_client(calls=calls), today=today)
+    assert research.status == "searched"
+    assert len(calls) == len(research.queries)
+    assert research.credits == len(calls)
+    assert research.results == 2 * len(calls)
+    assert [str(s.url) for s in research.sources] == ["https://www.example.co.uk/news/dorking-battery"]  # .com dropped
+    assert research.selected_by == KEYWORD_SELECTOR  # no model on this run
+    paragraphs = research.sources[0].paragraphs
+    assert paragraphs
+    assert all(verbatim(p, PAGE_TEXT) for p in paragraphs)
+    assert not any("newsletter" in p for p in paragraphs)
+
+    # Second run: served from the dated cache under out/, no request, no credits, even without a key.
+    monkeypatch.setattr(settings, "tavily_api_key", None)
+    again = await research_local_news(DORKING, client=_tavily_client(calls=calls), today=today)
+    assert len(calls) == len(research.queries)
+    assert again.cached
+    assert not again.recorded
+    assert again.credits == 0
+    assert again.fetched_on == today
+    assert again.sources == research.sources
+    assert (settings.cache_dir / "tavily").is_dir()
+
+
+@pytest.mark.anyio
+async def test_model_pick_not_in_page_text_is_dropped(monkeypatch: pytest.MonkeyPatch):
+    from pydantic_ai.messages import ModelResponse, ToolCallPart
+    from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+    real = "Residents in Dorking have objected to a 40MW battery storage site on farmland north of the town, citing fire risk."
+    invented = "Hundreds of Dorking residents marched against the battery site on Saturday."
+
+    def pick(_messages: list[object], info: AgentInfo) -> ModelResponse:
+        picks = [{"article": 0, "quote": real}, {"article": 0, "quote": invented}, {"article": 7, "quote": real}]
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"picks": picks})])
+
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+    research = await research_local_news(DORKING, model=FunctionModel(pick), client=_tavily_client())
+    assert research.dropped == 2  # the invented quote and the pick from an article that does not exist
+    assert research.sources[0].paragraphs == [real]
+    assert research.selected_by is not None
+    assert research.selected_by != KEYWORD_SELECTOR
+
+    # A replay of the same pages with no model reuses the stored picks: same quotes, same picker.
+    again = await research_local_news(DORKING, client=_tavily_client())
+    assert again.sources == research.sources
+    assert again.selected_by == research.selected_by
+    assert again.selection_key == research.selection_key
+
+
+@pytest.mark.anyio
+async def test_stored_labels_make_replays_stable():
+    from pydantic_ai.models.test import TestModel
+
+    from bessible.suitability.sentiment import classify_source
+
+    source = Source(url="https://www.example.co.uk/a", title="t", paragraphs=["Residents object to the battery site."])
+    first = await classify_source(source)  # no model: the keyword heuristic, stored
+    assert first[0].model == classifier.HEURISTIC_NAME
+    labels = {
+        "relevant": True,
+        "voice": DEVELOPER,
+        "stance": "supportive",
+        "concern": "no concern raised",
+        "mentions_risk": False,
+    }
+    conf = dict.fromkeys(labels, 0.9)
+    model = TestModel(custom_output_args={"rows": [{"index": 0, "labels": labels, "confidence": conf}]})
+    second = await classify_source(source, model)  # a model relabels stored heuristic labels
+    assert second[0].labels.voice == DEVELOPER
+    third = await classify_source(source)  # and its labels are replayed, with no model
+    assert third == second
+
+
+@pytest.mark.anyio
+async def test_recorded_response_serves_the_offline_demo(monkeypatch: pytest.MonkeyPatch):
+    from bessible.suitability import research as research_module
+    from bessible.suitability.sentiment import process_sentiment
+
+    today = date(2026, 9, 27)
+    recorded_dir = settings.cache_dir.parent / "recorded"
+    recorded_dir.mkdir(parents=True)
+    for q in news_queries(DORKING):
+        req = search_request(q.text, today)
+        entry = {"fetched_on": "2026-09-20", "recorded": True, "request": req.params(), "response": _tavily_body()}
+        (recorded_dir / f"{cache_key(req)}.json").write_text(json.dumps(entry))
+    monkeypatch.setattr(research_module, "RECORDED_DIR", recorded_dir)
+
+    research = await research_local_news(DORKING, client=_tavily_client(status=500), today=today)  # no key
+    assert research.recorded
+    assert research.cached
+    assert research.fetched_on == date(2026, 9, 20)
+    out = await process_sentiment("run-12345678", research)
+    search_art = next(a for a in out.artifacts if a.id.startswith("sentiment-search"))
+    assert "recorded Tavily responses fetched 2026-09-20" in search_art.claim
+    assert "Dorking battery storage BESS planning application" in search_art.claim
+    index_art = next(a for a in out.artifacts if a.id.startswith("sentiment-index"))
+    quotes = [a for a in out.artifacts if a.id.startswith("sentiment-p")]
+    assert quotes
+    assert all(str(a.source_url) == "https://www.example.co.uk/news/dorking-battery" for a in quotes)
+    assert index_art.model_used == ", ".join(sorted({a.model_used for a in quotes}))  # the classifier that ran
+
+
+@pytest.mark.anyio
+async def test_searched_and_found_nothing_is_its_own_outcome(monkeypatch: pytest.MonkeyPatch):
+    from bessible.suitability.sentiment import process_sentiment
+
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json=_tavily_body(text="Nothing about energy here, only a long story about a village fete.")
+        )
+
+    research = await research_local_news(DORKING, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    assert research.status == "searched"
+    assert not research.sources
+    out = await process_sentiment("run-12345678", research)
+    art = out.artifacts[0]
+    assert "not assessed" not in art.claim
+    assert "not configured" not in art.claim
+    assert "Tavily searched" in art.claim
+    assert "UK or local pages read" in art.claim
+    assert 0.2 < art.confidence < 0.9
+    assert art.model_used.startswith("Tavily search")
+    assert out.opposition_index is None
 
 
 @pytest.mark.anyio
@@ -227,9 +597,9 @@ async def test_end_to_end_suitability_stages():
     node_in = NodeInput(run_id=run_id, request=req, site=site, capacity=cap)
 
     # 1. Local sentiment stage
-    sent_out = await local_sentiment(node_in)
-    assert sent_out.sources >= 1
-    assert len(sent_out.artifacts) >= 1
+    sent_out = await local_sentiment(node_in)  # offline: no Tavily key
+    assert sent_out.opposition_index is None
+    assert "not configured" in sent_out.artifacts[0].claim
 
     # 2. Market stage
     mkt_out = await market_revenue(node_in)
@@ -318,23 +688,3 @@ def test_report_labels_each_gap():
     assert any("temporary, retry may fix; could hide a blocker" in ln for ln in lines)
     assert any("avoids_best_farmland** (no coverage here)" in ln for ln in lines)
     assert _gap_lines([]) == []
-
-
-@pytest.mark.anyio
-async def test_failed_news_search_is_a_retryable_gap_not_no_coverage():
-    from unittest.mock import AsyncMock, patch
-
-    from bessible.suitability.sentiment import process_sentiment
-
-    with patch("bessible.suitability.research.research_agent.run", AsyncMock(side_effect=TimeoutError("slow"))):
-        research = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0, model=object())
-    assert research.retryable
-    out = await process_sentiment("run-12345678", research)
-    assert out.opposition_index is None
-    assert out.gaps[0].retryable
-    assert "not assessed" in out.artifacts[0].claim
-    assert out.artifacts[0].confidence < 0.5
-
-    offline = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0)
-    assert offline.unavailable
-    assert not offline.retryable

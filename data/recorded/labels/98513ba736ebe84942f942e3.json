@@ -1,0 +1,18 @@
+{
+ "text": "Planning officers said the battery farm counted as \"inappropriate development\" in the green belt, causing a \"significant loss of openness\" and clashing with rules designed to stop urban sprawl.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "against",
+  "concern": "land use",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.7,
+  "stance": 0.95,
+  "concern": 0.98,
+  "mentions_risk": 0.98
+ },
+ "model": "gemini-3.8-flash"
+}

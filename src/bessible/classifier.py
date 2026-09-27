@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field, create_model
 from pydantic_ai import Agent, ModelRetry
 
 from bessible.config import settings
-from bessible.suitability.labels import ParagraphLabels
+from bessible.suitability.labels import COMMUNITY, DEVELOPER, NO_CONCERN, REPORTER, ParagraphLabels
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -47,6 +47,13 @@ MODAL_APP = "bessible-classifier"
 MODAL_NAME = "open-jev-deberta-v3-large (Modal)"
 HEURISTIC_NAME = "keyword heuristic"
 LLM_BATCH_SIZE = 25
+HEURISTIC_CONCERNS = (  # first match wins; an objection matching none is "land use"
+    ("fire safety", ("fire",)),
+    ("noise", ("noise",)),
+    ("traffic", ("traffic",)),
+    ("heritage", ("heritage", "listed building", "conservation area")),
+    ("consultation or process", ("consultation", "process")),
+)
 
 
 class ClassifierError(RuntimeError):
@@ -198,13 +205,17 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
         is_support = any(w in low for w in ("support", "welcome", "approve", "green", "net zero", "essential"))
 
         stance = "against" if is_against else ("supportive" if is_support else "neutral")
-        concern = (
-            "fire safety"
-            if "fire" in low
-            else ("noise" if "noise" in low else ("traffic" if "traffic" in low else "land use"))
-        )
+        found = (c for c, words in HEURISTIC_CONCERNS if any(w in low for w in words))
+        concern = next(found, "land use") if is_against else NO_CONCERN
+        if any(w in low for w in ("the developer", "we are proposing", "we have proposed", "proposing to develop")):
+            voice = DEVELOPER
+        elif any(w in low for w in ("resident", "campaign", "objector", "neighbour", "councillor", "parish council")):
+            voice = COMMUNITY
+        else:
+            voice = REPORTER
         labels = ParagraphLabels(
             relevant=is_relevant,
+            voice=voice,
             stance=stance,
             concern=concern,
             mentions_risk="fire" in low or "danger" in low or "runaway" in low,
@@ -213,7 +224,7 @@ def _classify_heuristic[T: BaseModel](paragraphs: list[str], schema: type[T]) ->
             Classified[T](
                 text=p,
                 labels=cast("T", labels),
-                confidence={"relevant": 0.85, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75},
+                confidence={"relevant": 0.85, "voice": 0.6, "stance": 0.80, "concern": 0.70, "mentions_risk": 0.75},
                 model=HEURISTIC_NAME,
             )
         )

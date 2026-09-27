@@ -1048,5 +1048,6 @@ def transmission_projects(
 
 def search_terms(where: Locality) -> list[str]:
     """Place names for the local news / sentiment search, most specific first."""
-    names = (where.place, where.parish, where.ward, where.district, where.planning_authority, where.county)
+    parish = where.parish if where.parish and not where.parish.endswith("unparished area") else None
+    names = (where.place, parish, where.ward, where.district, where.planning_authority, where.county)
     return list(dict.fromkeys(n for n in names if n))

@@ -1,0 +1,18 @@
+{
+ "text": "A bid to build a battery storage farm in Surrey has been thrown out after councillors decided it did not justify building on green belt land.",
+ "labels": {
+  "relevant": true,
+  "voice": "residents, campaigners or councillors",
+  "stance": "against",
+  "concern": "land use",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.75,
+  "stance": 0.95,
+  "concern": 0.95,
+  "mentions_risk": 0.98
+ },
+ "model": "gemini-3.8-flash"
+}

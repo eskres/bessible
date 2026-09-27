@@ -1,0 +1,18 @@
+{
+ "text": "OverviewKingsway Solar is a proposed solar farm and battery storage project to be located on parcels of land around the areas of Balsham, West Wratting, Weston Colville, and Weston Green in Cambridgeshire. Kingsway Solar would have the potential to supply around 500 Megawatts (MW) of electricity to the national grid.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.85,
+  "stance": 0.95,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

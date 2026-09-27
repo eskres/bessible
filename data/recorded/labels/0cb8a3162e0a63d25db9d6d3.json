@@ -1,0 +1,18 @@
+{
+ "text": "The Highfield Eco Hub project is a solar PV array with battery storage and electric vehicle (EV) charging, located near Royston, South Cambridgeshire. The project is anticipated to have a combined installed capacity of up to 18MWp of solar PV and battery storage, producing renewable electricity equivalent to the demand of around 5,000 average UK homes.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 1.0,
+  "voice": 0.85,
+  "stance": 0.95,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

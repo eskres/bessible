@@ -1,0 +1,18 @@
+{
+ "text": "Bluestone Energy is proposing to develop a Battery Energy Storage System (BESS) located on land to the east of M25 Junction 9 and the A243 southbound, Leatherhead.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.98,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

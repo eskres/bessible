@@ -1,0 +1,18 @@
+{
+ "text": "The scheme, designed to store energy for the National Grid and release it when demand peaks, was pitched as helping the UK hit its climate targets.",
+ "labels": {
+  "relevant": true,
+  "voice": "the developer or its consultants",
+  "stance": "supportive",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.85,
+  "stance": 0.9,
+  "concern": 0.98,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}
