@@ -375,10 +375,20 @@ class NearbyProject(BaseModel):
 
     id: str
     name: str
-    mw: float
+    mw: float | None = None  # REPD leaves capacity blank for some projects
     status: str
     status_date: date
     distance_km: float
+    ref_id: str | None = None  # REPD "Ref ID"
+    csv_row: int | None = None  # row in the published REPD CSV (header = row 1)
+    planning_authority: str | None = None
+    planning_ref: str | None = None  # the council's planning application reference
+    source_url: HttpUrl | None = None  # the CSV, with an RFC 7111 `#row=` fragment
+
+    @property
+    def capacity(self) -> str:
+        """`49.5 MW`, or a plain note when REPD has no capacity."""
+        return f"{self.mw:g} MW" if self.mw is not None else "capacity not stated"
 
 
 class PlanningOutput(BaseModel):

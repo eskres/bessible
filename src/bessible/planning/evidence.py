@@ -83,7 +83,7 @@ def build_evidence_prompt(projects: list[NearbyProject], policy: list[PolicyItem
 
     if projects:
         lines.extend(
-            f"- ID: {p.id} | Name: {p.name} | Capacity: {p.mw:g} MW | "
+            f"- ID: {p.id} | Name: {p.name} | Capacity: {p.capacity} | "
             f"Status: {p.status} | Date: {p.status_date} | Distance: {p.distance_km:g} km"
             for p in projects
         )

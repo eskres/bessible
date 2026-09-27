@@ -1,9 +1,11 @@
 {
-  "fetched_at": "2026-09-19",
+  "fetched_at": "2026-09-27",
   "dataset": "desnz-repd",
-  "dataset_url": "https://www.gov.uk/government/publications/renewable-energy-planning-database-monthly-extract",
-  "records_count": 6,
+  "dataset_url": "https://www.gov.uk/government/publications/renewable-energy-planning-database-quarterly-extract",
+  "csv_url": "https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv",
+  "csv_title": "Renewable Energy Planning Database (REPD): July 2026 (CSV)",
+  "records_count": 2674,
   "file": "repd.json",
-  "partial": true,
-  "note": "REPD battery storage projects snapshot for testing and demo."
+  "partial": false,
+  "note": "REPD Battery records; csv_row is the row in csv_url (header = row 1)."
 }
