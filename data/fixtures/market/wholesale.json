@@ -1,9 +1,17 @@
 {
   "stream": "wholesale",
-  "source": "Wholesale arbitrage (Elexon market index prices), fixture",
-  "source_url": "https://www.elexon.co.uk/",
-  "as_of": "2026-09-19",
-  "status": "placeholder",
-  "note": "PLACEHOLDER figures, not agreed and not from a live or paid feed. Arbitrage revenue rises with duration.",
-  "gbp_per_mw_year_by_duration": {"2": 30000, "4": 45000, "8": 55000}
+  "source": "Elexon Insights, Market Index Data (APX), half-hourly GB prices",
+  "source_url": "https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-27&to=2026-09-26&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP",
+  "as_of": "2026-09-27",
+  "period": "2025-09-27 to 2026-09-26 (364 complete settlement days)",
+  "method": "upper bound: perfect foresight, one full cycle per day; per day (mean of the top d hours' price - mean of the bottom d hours' price) x d MWh per MW x round-trip efficiency 0.85, summed over the days; charge and discharge hours are not forced into order",
+  "derivation": "17520 APX rows from https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-27&to=2026-09-26&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP; 364 days with >= 44 priced half hours kept; 2h: GBP 44,705/MW/yr, 4h: GBP 79,704/MW/yr, 8h: GBP 120,972/MW/yr",
+  "gbp_per_mw_year_by_duration": {
+    "2": 44705.0,
+    "4": 79704.0,
+    "8": 120972.0
+  },
+  "status": "agreed",
+  "note": "Snapshot of the live computation on 2026-09-27 (bessible.market.refresh). Served only when the live source fails, and then flagged cached.",
+  "cross_check": "Modo Energy, \"How does a battery energy storage system make money?\", Neil Weaver, 19 May 2026 (updated 21 May 2026), https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money: \"In GB, wholesale and Balancing Mechanism revenues together averaged £43,829/MW/year over the twelve months to April 2026.\" Not the same measure as ours: it includes Balancing Mechanism revenue, covers realised (not perfect-foresight) trading, a different period, and states no duration. The same page gives \"A typical two-hour GB BESS earned £73,145/MW/year over the twelve months to April 2026.\"; the page also says \"Two-hour GB BESS revenue averaged £73,145/MW/year over the twelve months to April 2026, with wholesale and Balancing Mechanism revenues making up around 60% of the stack\" (in the page HTML twice, in a summary block). £43,829 / £73,145 = 59.9%, so £43,829 matches the 2h stack, but the sentence giving £43,829 itself names no duration."
 }

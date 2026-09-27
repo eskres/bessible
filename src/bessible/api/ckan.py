@@ -229,6 +229,7 @@ class CkanResource(ApiResponse):
     resource_type: str | None = None
     datastore_active: bool | None = None
     datastore_append_or_update: bool | None = None
+    datastore_unique_keys: list[str] | None = None  # NESO EAC order resources, e.g. ["orderID"]
     created: datetime | None = None  # naive UTC
     last_modified: datetime | None = None
     metadata_modified: datetime | None = None
