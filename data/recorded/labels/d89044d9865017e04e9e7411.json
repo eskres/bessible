@@ -1,0 +1,18 @@
+{
+ "text": "We are concerned that this process is proceeding with a complete lack of clarity as to where the connection will be and would suggest decisions are delayed until National Grid are able to provide this information.",
+ "labels": {
+  "relevant": true,
+  "voice": "residents, campaigners or councillors",
+  "stance": "against",
+  "concern": "consultation or process",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.95,
+  "voice": 0.95,
+  "stance": 0.9,
+  "concern": 0.95,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

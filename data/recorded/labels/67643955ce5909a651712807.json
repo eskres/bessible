@@ -1,0 +1,18 @@
+{
+ "text": "Plans for a controversial battery energy storage unit have been approved by a council, despite concerns about fire risk.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "against",
+  "concern": "fire safety",
+  "mentions_risk": true
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.9,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

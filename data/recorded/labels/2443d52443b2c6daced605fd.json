@@ -1,0 +1,18 @@
+{
+ "text": "Plans to install a Battery Energy Storage System (BESS) near Ashtead Common have sparked significant opposition from local conservation groups and residents. The proposed facility, intended to support renewable energy integration and grid stability, has raised environmental and safety concerns, particularly given its proximity to a Site of Special Scientific Interest (SSSI) and Ashtead Common National Nature Reserve.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "against",
+  "concern": "ecology",
+  "mentions_risk": true
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.9,
+  "stance": 0.95,
+  "concern": 0.85,
+  "mentions_risk": 0.9
+ },
+ "model": "gemini-3.8-flash"
+}

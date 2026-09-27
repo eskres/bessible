@@ -1,0 +1,18 @@
+{
+ "text": "MoleValley council planners have indicated no objection to the cable when consulted by Kingston Council, however without prejudice to the forthcoming decision on the storage facility.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.98,
+  "voice": 0.9,
+  "stance": 0.95,
+  "concern": 0.95,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

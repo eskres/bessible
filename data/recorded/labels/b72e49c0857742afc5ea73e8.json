@@ -1,0 +1,18 @@
+{
+ "text": "The development will include the construction of a battery storage compound within secure 2.4m high fencing. Within the fence perimeter, the battery storage containers, inverter units, load banks, transformers, DNO and customer control rooms and a customer switchroom and storage container will be installed.",
+ "labels": {
+  "relevant": true,
+  "voice": "a reporter or official stating facts",
+  "stance": "neutral",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.98,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

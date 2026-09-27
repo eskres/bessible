@@ -1,0 +1,18 @@
+{
+ "text": "Bluestone Energy Ltd has submitted plans to Mole Valley District Council for the installation of a BESS facility near Barnett Wood Lane, Ashtead. The project includes underground cabling, access roads, security fencing, and biodiversity enhancements. Proponents argue that the facility is vital for managing energy supply fluctuations, particularly with the increasing reliance on renewable energy sources.",
+ "labels": {
+  "relevant": true,
+  "voice": "the developer or its consultants",
+  "stance": "supportive",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.85,
+  "stance": 0.9,
+  "concern": 0.99,
+  "mentions_risk": 0.95
+ },
+ "model": "gemini-3.8-flash"
+}

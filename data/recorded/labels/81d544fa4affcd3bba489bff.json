@@ -1,0 +1,18 @@
+{
+ "text": "Ashtead Common has a history of significant biodiversity loss due to wildfires. Objectors express concerns over the fire hazards posed by lithium-ion batteries, particularly given the facility’s location and prevailing winds. The proposed water tank is deemed insufficient to address thermal runaway events effectively.",
+ "labels": {
+  "relevant": true,
+  "voice": "residents, campaigners or councillors",
+  "stance": "against",
+  "concern": "fire safety",
+  "mentions_risk": true
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.95,
+  "stance": 0.99,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}

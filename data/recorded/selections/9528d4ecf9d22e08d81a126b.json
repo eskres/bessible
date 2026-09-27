@@ -1,0 +1,39 @@
+{
+ "model": "gemini-3.8-flash",
+ "output": {
+  "picks": [
+   {
+    "article": 1,
+    "quote": "OverviewKingsway Solar is a proposed solar farm and battery storage project to be located on parcels of land around the areas of Balsham, West Wratting, Weston Colville, and Weston Green in Cambridgeshire. Kingsway Solar would have the potential to supply around 500 Megawatts (MW) of electricity to the national grid."
+   },
+   {
+    "article": 1,
+    "quote": "It will also include an approximate 14km Grid Connection to National Grid’s planned Burwell South substation, to be located to the south of the existing substation at Burwell."
+   },
+   {
+    "article": 2,
+    "quote": "Plans for a controversial battery energy storage unit have been approved by a council, despite concerns about fire risk."
+   },
+   {
+    "article": 2,
+    "quote": "The battery storage units will be built close to nearby solar farms and will store energy at off-peak times, which can then be used when there is more demand on the National Grid."
+   },
+   {
+    "article": 3,
+    "quote": "The Highfield Eco Hub project is a solar PV array with battery storage and electric vehicle (EV) charging, located near Royston, South Cambridgeshire. The project is anticipated to have a combined installed capacity of up to 18MWp of solar PV and battery storage, producing renewable electricity equivalent to the demand of around 5,000 average UK homes."
+   },
+   {
+    "article": 5,
+    "quote": "We objected to the two local developments listed below pending consideration. For both developments we have engaged with the developers and encouraged them to consult with local residents as widely as possible. Our objections have primarily been on acoustic, safety and environmental concerns in the build, operation and decommissioning of solar farms and battery storage. We are engaging with Kingsway and the National Grid to try and find out as much information as possible."
+   },
+   {
+    "article": 5,
+    "quote": "We are concerned that this process is proceeding with a complete lack of clarity as to where the connection will be and would suggest decisions are delayed until National Grid are able to provide this information."
+   },
+   {
+    "article": 7,
+    "quote": "Innova is proposing a 49MW (Megawatt) solar and 10MW energy storage development on land off Low Fen Drove Way. This proposal will connect into the local electricity grid through an on-site connection and will have a generation capacity to power the equivalent of approximately 13,422 households and save approximately 10,909 tonnes in CO2 emissions per year."
+   }
+  ]
+ }
+}

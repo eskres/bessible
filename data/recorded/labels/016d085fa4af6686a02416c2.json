@@ -1,0 +1,18 @@
+{
+ "text": "Innova is proposing a 49MW (Megawatt) solar and 10MW energy storage development on land off Low Fen Drove Way. This proposal will connect into the local electricity grid through an on-site connection and will have a generation capacity to power the equivalent of approximately 13,422 households and save approximately 10,909 tonnes in CO2 emissions per year.",
+ "labels": {
+  "relevant": true,
+  "voice": "the developer or its consultants",
+  "stance": "supportive",
+  "concern": "no concern raised",
+  "mentions_risk": false
+ },
+ "confidence": {
+  "relevant": 0.99,
+  "voice": 0.85,
+  "stance": 0.85,
+  "concern": 0.99,
+  "mentions_risk": 0.99
+ },
+ "model": "gemini-3.8-flash"
+}
