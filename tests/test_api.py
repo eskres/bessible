@@ -218,6 +218,51 @@ def test_mocked_workflow_endpoints(client: TestClient) -> None:
         assert completed_res.json()["status"] == "completed"
 
 
+def test_open_completed_run_serves_latest_result_and_takes_retries(client: TestClient) -> None:
+    """A run kept open for retries serves its latest result; /retry forwards the update or reports why not."""
+    from temporalio.client import WorkflowUpdateFailedError
+    from temporalio.exceptions import ApplicationError
+
+    from bessible.api.runs import RETRY_WINDOW_S
+    from bessible.workflow import AssessmentWorkflow
+
+    latest = AssessmentResult(status="completed", run_dir="out/x", retries_left=3)
+    mock_client, mock_handle = MagicMock(), MagicMock()
+    mock_client.start_workflow = AsyncMock(return_value=mock_handle)
+    mock_client.get_workflow_handle.return_value = mock_handle
+
+    async def query(q: object) -> object:
+        return latest if q is AssessmentWorkflow.result else RunStatus(status="completed")
+
+    mock_handle.query = AsyncMock(side_effect=query)
+    desc = MagicMock(status=WorkflowExecutionStatus.RUNNING)
+    desc.memo_value = AsyncMock(return_value=USER.uid)
+    mock_handle.describe = AsyncMock(return_value=desc)
+    mock_handle.execute_update = AsyncMock(return_value=None)
+
+    with patch("bessible.api.runs.get_temporal_client", AsyncMock(return_value=mock_client)):
+        client.post("/runs", json={"postcode": "RH4 1AD", "retry_window_s": 5})
+        assert mock_client.start_workflow.call_args.args[1].retry_window_s == RETRY_WINDOW_S  # the API's, not ours
+
+        res = client.get("/runs/bessible-1/result")
+        assert res.status_code == 200
+        assert res.json()["retries_left"] == 3
+
+        assert client.post("/runs/bessible-1/retry", json={"stages": ["site_land"]}).status_code == 204
+        mock_handle.execute_update.assert_awaited_once_with(AssessmentWorkflow.retry_stages, ["site_land"])
+        assert client.post("/runs/bessible-1/retry", json={"stages": []}).status_code == 422
+        assert client.post("/runs/bessible-1/retry", json={"stages": ["nonsense"]}).status_code == 422
+
+        refused = WorkflowUpdateFailedError(ApplicationError("Nothing a retry could fill"))
+        mock_handle.execute_update = AsyncMock(side_effect=refused)
+        assert client.post("/runs/bessible-1/retry", json={"stages": ["grid"]}).status_code == 409
+
+        desc.status = WorkflowExecutionStatus.COMPLETED
+        closed = client.post("/runs/bessible-1/retry", json={"stages": ["site_land"]})
+        assert closed.status_code == 409
+        assert "start a new run" in closed.json()["detail"]
+
+
 def test_unknown_run_returns_404(client: TestClient) -> None:
     """Requests for unknown runs return 404."""
     rpc_not_found = RPCError("Workflow not found", RPCStatusCode.NOT_FOUND, None)

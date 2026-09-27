@@ -331,6 +331,7 @@ The pipeline runs as a durable Temporal workflow (`AssessmentWorkflow`):
 3. **Parallel Group 1**: `grid_connection`, `site_land`, `market_revenue`, `local_sentiment`.
 4. **Parallel Group 2**: `financial_model`, `regulatory_planning`.
 5. **Synthesis**: Compiles Markdown report and verifies that all claims cite evidence artifact IDs.
+6. **Retries** (web runs only): each Group 1 stage reports the evidence it could not get as `gaps` (`DataGap`: retryable when a source failed, `could_block` when it might hide a land blocker). A run started through the API stays open for `retry_window_s` (30 min) after its report; the `retry_stages` update (`POST /runs/{id}/retry`) re-runs only the named stages with retryable gaps, then Group 2 and synthesis, up to 3 times. `GET /runs/{id}/result` serves the latest report meanwhile. CLI and recorded runs end with their report.
 
 Each assessment stage is an independent `async` function in `src/bessible/stages/<stage>.py`. You can swap or customize any stage implementation without modifying workflow or worker logic.
 

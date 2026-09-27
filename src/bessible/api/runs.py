@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from temporalio.client import WorkflowExecutionStatus, WorkflowUpdateFailedError
 
 from bessible.api.ownership import OWNER_MEMO, assert_owner
 from bessible.api.temporal import get_temporal_client, handle_temporal_error
 from bessible.auth import User, current_user
 from bessible.keystore import KeyStore, KeyStoreError, get_key_store
-from bessible.models import AssessmentRequest, AssessmentResult, RunStatus, SiteDecision
+from bessible.models import AssessmentRequest, AssessmentResult, RunStatus, SiteDecision, Stage
 from bessible.workflow import TASK_QUEUE, AssessmentWorkflow
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 
 ACTIVE_STATUSES = {"running", "awaiting_confirmation"}
 FLOOR_MW = 5.0
+RETRY_WINDOW_S = 30 * 60  # a completed run takes retries for this long after its last report
 
 
 @router.post("", status_code=200)
@@ -48,7 +50,8 @@ async def start_run(
         client = await get_temporal_client()
         await client.start_workflow(
             AssessmentWorkflow.run,
-            req.model_copy(update={"credentials": creds}),  # always ours: a client-supplied value is overwritten
+            # always ours: client-supplied values are overwritten
+            req.model_copy(update={"credentials": creds, "retry_window_s": RETRY_WINDOW_S}),
             id=run_id,
             task_queue=TASK_QUEUE,
             memo={OWNER_MEMO: user.uid},
@@ -159,10 +162,50 @@ async def get_run_result(run_id: str, user: Annotated[User, Depends(current_user
         handle = client.get_workflow_handle(run_id, result_type=AssessmentResult)
         desc = await assert_owner(handle, run_id, user)
         if desc.status == WorkflowExecutionStatus.RUNNING:
-            return await _running_response(handle)
+            return await _open_run_result(handle)
         result: AssessmentResult = await handle.result()
     except Exception as exc:
         handle_temporal_error(exc, run_id)
         raise
     else:
         return result.model_copy(update={"run_id": run_id})  # runs finished before the field existed lack it
+
+
+async def _open_run_result(handle: WorkflowHandle[AssessmentWorkflow, AssessmentResult]) -> AssessmentResult | Response:
+    """A completed run stays open for retries: serve its latest result from the workflow's state."""
+    status: RunStatus = await handle.query(AssessmentWorkflow.status)
+    latest: AssessmentResult | None = await handle.query(AssessmentWorkflow.result)
+    if latest is None or status.status != "completed":
+        return await _running_response(handle)
+    return latest
+
+
+class RetryRequest(BaseModel):
+    """The evidence stages to run again."""
+
+    stages: list[Stage] = Field(min_length=1)
+
+
+@router.post("/{run_id}/retry", status_code=204)
+async def retry_run_stages(run_id: str, body: RetryRequest, user: Annotated[User, Depends(current_user)]) -> Response:
+    """Re-run stages whose data gaps a retry may fill; poll `status` and `result` for the new report."""
+    if run_id.startswith("demo-"):
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+    try:
+        client = await get_temporal_client()
+        handle = client.get_workflow_handle(run_id, result_type=AssessmentResult)
+        desc = await assert_owner(handle, run_id, user)
+    except Exception as exc:
+        handle_temporal_error(exc, run_id)
+        raise
+    if desc.status != WorkflowExecutionStatus.RUNNING:
+        raise HTTPException(status_code=409, detail="This run has closed for retries: start a new run")
+    try:
+        await handle.execute_update(AssessmentWorkflow.retry_stages, body.stages)
+    except WorkflowUpdateFailedError as exc:
+        # The workflow validator refused it: not completed yet, nothing retryable, or no retries left.
+        raise HTTPException(status_code=409, detail=str(exc.cause or exc)) from exc
+    except Exception as exc:
+        handle_temporal_error(exc, run_id)
+        raise
+    return Response(status_code=204)

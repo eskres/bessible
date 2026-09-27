@@ -318,3 +318,23 @@ def test_report_labels_each_gap():
     assert any("temporary, retry may fix; could hide a blocker" in ln for ln in lines)
     assert any("avoids_best_farmland** (no coverage here)" in ln for ln in lines)
     assert _gap_lines([]) == []
+
+
+@pytest.mark.anyio
+async def test_failed_news_search_is_a_retryable_gap_not_no_coverage():
+    from unittest.mock import AsyncMock, patch
+
+    from bessible.suitability.sentiment import process_sentiment
+
+    with patch("bessible.suitability.research.research_agent.run", AsyncMock(side_effect=TimeoutError("slow"))):
+        research = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0, model=object())
+    assert research.retryable
+    out = await process_sentiment("run-12345678", research)
+    assert out.opposition_index is None
+    assert out.gaps[0].retryable
+    assert "not assessed" in out.artifacts[0].claim
+    assert out.artifacts[0].confidence < 0.5
+
+    offline = await research_local_news(place="Nowhere", lat=50.0, lon=-4.0)
+    assert offline.unavailable
+    assert not offline.retryable

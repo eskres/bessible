@@ -8,7 +8,7 @@ import os
 from pydantic import HttpUrl
 from temporalio import activity
 
-from bessible.models import Artifact, GridOutput, NodeInput
+from bessible.models import Artifact, DataGap, GridOutput, NodeInput
 from bessible.ukpn.snapshot import GSP_DATASET_ID, GSP_DATASET_URL, get_snapshot
 from bessible.ukpn.timescales import gsp_queue, timescales
 
@@ -123,8 +123,15 @@ async def grid_connection(inp: NodeInput) -> GridOutput:
             )
         )
 
+    where = sub_name or "the serving substation"
+    gaps = [
+        DataGap(stage="grid", what=what, reason=f"No grid supply point data for {where} in the UKPN snapshot.")
+        for what, missing in (("gate2_queue_position", queue is None), ("connection_timescale", times is None))
+        if missing
+    ]
     return GridOutput(
         gate2_queue_position=queue_pos,
         indicative_connection_months=median_months,
         artifacts=artifacts,
+        gaps=gaps,
     )

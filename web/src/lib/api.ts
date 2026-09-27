@@ -134,6 +134,18 @@ export async function sendDecision(
   throw new ApiError(res.status, detailMessage(errorData, 'Decision submission failed'), errorData);
 }
 
+/** Re-runs the evidence stages whose data gaps a retry may fill; the run's status goes back to running. */
+export async function retryStages(id: string, stages: string[]): Promise<void> {
+  const res = await apiFetch(`${runPath(id)}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stages }),
+  });
+  if (res.status === 204) return;
+  const errorData = await res.json().catch(() => ({}));
+  throw new ApiError(res.status, detailMessage(errorData, 'Retry failed'), errorData);
+}
+
 export async function getRunResult(id: string): Promise<AssessmentResult> {
   const res = await apiFetch(`${runPath(id)}/result`);
   if (res.status === 409) {

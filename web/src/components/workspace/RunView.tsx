@@ -8,6 +8,7 @@ import ReportView from '../ReportView';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Compass, Sparkles } from 'lucide-react';
 import type { SiteRun } from '../../lib/useSiteRun';
+import { isDemoRun } from '../../lib/api';
 import type { SiteData, SubstationOption } from '../../lib/types';
 
 interface RunViewProps {
@@ -133,6 +134,8 @@ export default function RunView({
       <ReportView
         result={run.result}
         onReset={onReset}
+        onRetry={run.tracked && !isDemoRun(run.runId) ? run.retry : undefined}
+        retrying={run.runStatus?.status === 'running'}
         siteMap={
           <SiteMap
             initialCenter={run.initialCenter}

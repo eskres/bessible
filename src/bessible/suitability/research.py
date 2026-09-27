@@ -36,6 +36,8 @@ class Research(BaseModel):
     lpa: str | None = None
     sources: list[Source] = Field(default_factory=list)
     cached: bool = False
+    unavailable: str | None = None  # why no live search ran or answered; None = it did (or the cache did)
+    retryable: bool = False  # the search failed, so trying again may work
 
 
 def _site_key(lat: float, lon: float, postcode: str | None = None) -> str:
@@ -121,20 +123,19 @@ async def research_local_news(
         f"near {place}{lpa_str} (coordinates: {lat:.4f}, {lon:.4f}{f', postcode: {postcode}' if postcode else ''})."
     )
 
-    if model is not None:
+    if model is None:
+        why, retryable = "No model on this run for the live news search.", False
+    else:
         try:
             res = await research_agent.run(prompt, model=model, usage_limits=RESEARCH_USAGE_LIMITS)
             output = res.output
             if isinstance(output, Research):
                 save_cached_research(key, output)
                 return output
-        except Exception:
-            pass
+            why = "The news search returned no usable result."
+        except Exception as e:  # reported as a retryable gap, not raised
+            why = f"The news search failed ({type(e).__name__}: {e})"[:200]
+        retryable = True
 
-    # 4. Fallback if search fails / offline
-    return Research(
-        place=place,
-        lpa=lpa,
-        sources=[],
-        cached=False,
-    )
+    # 4. Fallback if search fails / offline: say so, rather than "no coverage"
+    return Research(place=place, lpa=lpa, sources=[], cached=False, unavailable=why, retryable=retryable)

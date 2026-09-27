@@ -62,6 +62,8 @@ class AssessmentRequest(BaseModel):
     target_mw: float | None = None
     # Set by the API or CLI from the key store; client values are ignored
     credentials: EncryptedCredentials | None = None
+    # Set by the API: how long a completed run stays open for `retry_stages`. 0 = it ends with its report
+    retry_window_s: int = Field(default=0, ge=0)
 
     @model_validator(mode="before")
     @classmethod

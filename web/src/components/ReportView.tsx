@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AssessmentResult, Artifact, FinancialCase } from '../lib/types';
 import { downloadMarkdownReport, printReport } from '../lib/reportExport';
+import DataGaps from './DataGaps';
 import { StageBadge, stageStyle } from '../lib/stages';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -107,9 +108,12 @@ interface ReportViewProps {
   onReset?: () => void;
   /** A read-only map of the site; when given, a pin icon next to the coordinates opens it in a dialog. */
   siteMap?: React.ReactNode;
+  /** Re-runs stages with retryable data gaps; absent where a run cannot be retried (recorded replays). */
+  onRetry?: (stages: string[]) => void;
+  retrying?: boolean;
 }
 
-export default function ReportView({ result, onReset, siteMap }: ReportViewProps) {
+export default function ReportView({ result, onReset, siteMap, onRetry, retrying }: ReportViewProps) {
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const { capacity, site, grid_connection, land_planning, financial, artifacts = [] } = result;
@@ -322,6 +326,8 @@ export default function ReportView({ result, onReset, siteMap }: ReportViewProps
         </div>
         <span className="text-[10px] font-mono text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">Model v1.2</span>
       </div>
+
+      <DataGaps gaps={result.gaps ?? []} retriesLeft={result.retries_left ?? 0} onRetry={onRetry} retrying={retrying} />
 
       {/* 3. Deep Dive Sections Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

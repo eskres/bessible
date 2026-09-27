@@ -75,7 +75,7 @@ def outside_flood_zone_3(proposal: Proposal) -> Check:
     result = partial(_check, "outside_flood_zone_3", proposal, FLOOD_SOURCE)
     flood, limit = proposal.location.deterministic.flood, proposal.limits.max_flood_zone_3_pct
     if flood is None:
-        return result("unknown", "Flood zones not assessed (England only).")
+        return result("unknown", _not_assessed("Flood zones", proposal))
     outcome: Outcome = "fail" if flood.zone_3_pct >= limit else "warn" if flood.zone > 1 else "pass"
     reason = f"{flood.zone_3_pct}% of the title is in Flood Zone 3, {flood.zone_2_pct}% in Zone 2 (limit {limit:g}%)."
     return result(outcome, reason, zone=flood.zone, zone_3_pct=flood.zone_3_pct, zone_2_pct=flood.zone_2_pct)
@@ -85,7 +85,7 @@ def outside_green_belt(proposal: Proposal) -> Check:
     result = partial(_check, "outside_green_belt", proposal, LAND_SOURCES)
     land = proposal.location.deterministic.land
     if land is None:
-        return result("unknown", "Green belt not assessed (England only).")
+        return result("unknown", _not_assessed("Green belt", proposal))
     if not land.green_belt:
         return result("pass", "Not in the green belt.")
     return result("warn", f"In the green belt ({land.green_belt_name or 'unnamed'}): needs very special circumstances.")
@@ -95,7 +95,7 @@ def avoids_best_farmland(proposal: Proposal) -> Check:
     result = partial(_check, "avoids_best_farmland", proposal, LAND_SOURCES)
     land = proposal.location.deterministic.land
     if land is None:
-        return result("unknown", "Farmland grade not assessed (England only).")
+        return result("unknown", _not_assessed("Farmland grade", proposal))
     if land.best_and_most_versatile is None:
         return result("unknown", "Farmland grade unknown: provisional Grade 3 is not split into 3a / 3b here.")
     grades = ", ".join(f"{g.grade} {g.overlap_pct:g}%" for g in land.alc)
@@ -124,7 +124,7 @@ def clear_of_protected_landscape(proposal: Proposal) -> Check:
 def _clear_of(kinds: tuple[str, ...], name: str, proposal: Proposal) -> Check:
     result = partial(_check, name, proposal, DESIGNATION_SOURCES)
     if not _designations_cover(proposal):
-        return result("unknown", "Designations not assessed (England only).")
+        return result("unknown", _not_assessed("Designations", proposal))
     on_site = [d for d in proposal.location.deterministic.designations if d.kind in kinds and d.on_site]
     if not on_site and _failed(proposal, DESIGNATION_SOURCES):
         return result("unknown", f"None found on the title ({', '.join(kinds)}), but not every layer answered.")
@@ -272,6 +272,12 @@ def _check(
         failed_sources=_failed(proposal, sources),
         confidence=UNKNOWN_CONFIDENCE,
     )
+
+
+def _not_assessed(what: str, proposal: Proposal) -> str:
+    """Why a check has no data: outside the England-only sources, or (appended by `_check`) a failed source."""
+    outside = proposal.location.deterministic.locality.country not in {None, "England"}
+    return f"{what} not assessed (England only)." if outside else f"{what} not assessed."
 
 
 def _failed(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:
