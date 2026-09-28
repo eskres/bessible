@@ -160,7 +160,9 @@ export async function getRunResult(id: string): Promise<AssessmentResult> {
     const errorData = await res.json().catch(() => ({}));
     throw new ApiError(res.status, detailMessage(errorData, 'Failed to get result'), errorData);
   }
-  return res.json();
+  const result: AssessmentResult = await res.json();
+  if (result.capacity) result.capacity = normalizeCapacity(result.capacity);
+  return result;
 }
 
 export async function checkCapacity(
