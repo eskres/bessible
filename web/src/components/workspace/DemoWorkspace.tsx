@@ -153,7 +153,7 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      <AppHeader onHome={onExit} runId={run.runId} onResetRun={restart}>
+      <AppHeader onHome={restart} runId={run.runId} onResetRun={restart}>
         <Badge
           variant="outline"
           className="gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
