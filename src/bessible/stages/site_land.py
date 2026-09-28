@@ -15,6 +15,8 @@ async def site_land(inp: NodeInput) -> SiteLandOutput:
     "unknown", listed in `not_assessed`. Anything that does raise is a bug, left to the activity's retries.
     """
     coords = Coordinates(lat=inp.site.position.lat, lon=inp.site.position.lon)
-    location = await collate(coords)
+    # Measured against the confirmed site (the INSPIRE polygons it covers), else the title under the pin
+    boundary = inp.site.boundary
+    location = await collate(coords, site_polygon=boundary.boundary_geojson or None, site_ids=boundary.inspire_ids)
     proposal = Proposal(location=location, battery_mw=inp.site.capacity_mw)
     return site_land_output(proposal, assess(proposal), inp.run_id)

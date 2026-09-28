@@ -23,6 +23,21 @@ PROTECTED_HERITAGE = (
     "world_heritage_site",
 )
 PROTECTED_LANDSCAPE = ("national_park", "national_landscape")
+# What each protected kind is, for the claim: a bare name ("Surrey Hills") does not say which designation it is.
+DESIGNATION_LABEL = {
+    "sssi": "SSSI",
+    "sac": "Special Area of Conservation",
+    "spa": "Special Protection Area",
+    "ramsar": "Ramsar site",
+    "national_nature_reserve": "National Nature Reserve",
+    "ancient_woodland": "ancient woodland",
+    "scheduled_monument": "scheduled monument",
+    "registered_park_or_garden": "registered park and garden",
+    "registered_battlefield": "registered battlefield",
+    "world_heritage_site": "World Heritage Site",
+    "national_park": "National Park",
+    "national_landscape": "National Landscape (AONB)",
+}
 
 # Names of the `LocationData.sources` each check's facts come from (matched by prefix).
 TITLE_SOURCE = ("Planning Data: title boundary",)
@@ -131,9 +146,20 @@ def _clear_of(kinds: tuple[str, ...], name: str, proposal: Proposal) -> Check:
     if not on_site:
         return result("pass", f"None on the title ({', '.join(kinds)}).")
     covered_pct, limit = max(map(_covered_pct, on_site)), proposal.limits.max_protected_pct
-    names = ", ".join(sorted({d.name or d.kind for d in on_site}))
-    reason = f"{names} covers up to {covered_pct:g}% of the title (limit {limit:g}%)."
+    names = ", ".join(sorted({_designation_name(d) for d in on_site}))
+    unmeasured = any(d.overlap_pct is None for d in on_site)
+    share = f"up to {covered_pct:g}%" + (" (overlap not measured, taken as all)" if unmeasured else "")
+    reason = f"{names} covers {share} of the title (limit {limit:g}%)."
     return result("fail" if covered_pct >= limit else "warn", reason, designations=names, covered_pct=covered_pct)
+
+
+def _designation_name(designation: Designation) -> str:
+    """'Surrey Hills National Landscape (AONB)': the name with what kind of designation it is."""
+    label = DESIGNATION_LABEL.get(designation.kind, designation.kind.replace("_", " "))
+    if not designation.name:
+        return label
+    first_word = label.split()[0].lower()
+    return designation.name if first_word in designation.name.lower() else f"{designation.name} {label}"
 
 
 def _designations_cover(proposal: Proposal) -> bool:

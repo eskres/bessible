@@ -8,7 +8,14 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from bessible.location.fetch import PageUnavailable, UnsafeUrl, fetch_page_text, html_to_text, page_cache_path
+from bessible.location.fetch import (
+    PageUnavailable,
+    UnsafeUrl,
+    fetch_page_text,
+    html_to_text,
+    live_cache_path,
+    page_cache_path,
+)
 
 
 def test_html_to_text():
@@ -56,9 +63,10 @@ async def test_fetch_page_text_caching(monkeypatch, tmp_path):
     assert "OX14 4TE" in text_1
     assert mock_client.get.call_count == 1
 
-    # Verify cache file exists
-    cache_file = page_cache_path(test_url)
+    # Verify the page went to the live cache, never to the committed fixtures
+    cache_file = live_cache_path(test_url)
     assert cache_file.exists()
+    assert not page_cache_path(test_url).exists()
     cached_data = json.loads(cache_file.read_text(encoding="utf-8"))
     assert cached_data["url"] == test_url
     assert "Property at Didcot" in cached_data["text"]

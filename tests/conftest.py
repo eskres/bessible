@@ -55,10 +55,25 @@ def offline_market(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+TITLE_FIXTURE = Path(__file__).parent / "api" / "fixtures" / "planning_data_title_boundary_dorking_60m.geojson"
+
+
+@pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
+def offline_titles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The title stage's polygon search answers with a real saved planning.data response (Dorking, 60 m)."""
+    from bessible.api import planning_data
+
+    async def fake(*_args: object, **_kwargs: object) -> tuple[planning_data.EntityGeoJsonResponse, bool]:
+        return planning_data.EntityGeoJsonResponse.model_validate_json(TITLE_FIXTURE.read_text()), False
+
+    monkeypatch.setattr("bessible.titles.search.search_titles", fake)
+
+
 @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
 def offline_news(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """No Tavily key, an empty cache and no recordings; the sentiment stage's place names come from a fake lookup."""
     monkeypatch.setattr(settings, "tavily_api_key", None)
+    monkeypatch.setattr(settings, "hmlr_api_key", None)  # the title stage skips CCOD / OCOD
     monkeypatch.setattr(settings, "cache_dir", tmp_path / "cache")
     monkeypatch.setattr("bessible.suitability.research.RECORDED_DIR", tmp_path / "recorded")
     monkeypatch.setattr("bessible.suitability.stored.RECORDED_ROOT", tmp_path / "recorded")

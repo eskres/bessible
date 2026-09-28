@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any, Literal
 
@@ -207,12 +208,67 @@ class TitleInput(StageInput):
     capacity: CapacityOutput
 
 
-class TitleOutput(BaseModel):
-    """Land registry title boundaries and area."""
+class Geometry(BaseModel):
+    """A GeoJSON geometry in WGS84 (the same shape as `bessible.location.models.Geometry`)."""
+
+    type: Literal["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]
+    coordinates: list[Any]
+
+
+TitleSource = Literal["listing", "ccod", "ocod", "user"]
+TITLE_NUMBER_RE = r"[A-Z]{1,3}\d{1,6}"  # HMLR title numbers: 1 to 3 letters (county prefix) then digits
+
+
+class TitleParcel(BaseModel):
+    """One HM Land Registry INSPIRE index polygon: the position and indicative extent of a registered property.
+
+    The free index carries no title number: `title_number` is set only when a named source links one to this
+    polygon (`title_link="polygon"`) or to the site it belongs to (`"site"`).
+    """
+
+    inspire_id: str
+    geometry: Geometry
+    area_m2: float
+    source_url: str | None = None  # the planning.data entity page
+    title_number: str | None = None
+    title_source: TitleSource | None = None
+    title_source_url: str | None = None  # the listing URL, the HMLR dataset, or None for the user
+    title_link: Literal["polygon", "site"] | None = None
+    footprint_overlap_pct: float | None = None  # share of the BESS footprint on this polygon, 0-100
+
+
+class TitleNumber(BaseModel):
+    """A title number from a named source. Never inferred from an INSPIRE id, a neighbour or a model."""
 
     title_number: str
+    source: TitleSource
+    source_url: str | None = None
+    link: Literal["polygon", "site"] = "site"
+    inspire_id: str | None = None  # the polygon it is tied to, when `link == "polygon"`
+    proprietor: str | None = None  # CCOD / OCOD: the registered company
+    tenure: str | None = None
+    address: str | None = None
+    postcode: str | None = None
+    evidence: str | None = None  # the listing sentence, or the matching dataset row's address
+
+
+class TitleOutput(BaseModel):
+    """Land registry title boundaries and area.
+
+    Before confirmation: `pin_parcel` and `candidates` from the polygon search, `site_parcels` the pin polygon.
+    After: `site_parcels` are the polygons the confirmed site covers; `boundary_geojson` and `area_m2` their union.
+    """
+
+    title_number: str | None = None  # the pin polygon's title number, when a source gives one
     boundary_geojson: dict[str, Any] = Field(default_factory=dict)
     area_m2: float
+    pin_parcel: TitleParcel | None = None
+    candidates: list[TitleParcel] = Field(default_factory=list)
+    site_parcels: list[TitleParcel] = Field(default_factory=list)
+    inspire_ids: list[str] = Field(default_factory=list)
+    title_numbers: list[TitleNumber] = Field(default_factory=list)
+    search_radius_m: float | None = None
+    notes: list[str] = Field(default_factory=list)  # what was not found or skipped, and why
     artifacts: list[Artifact] = Field(default_factory=list)
 
 
@@ -225,6 +281,56 @@ class SiteDecision(BaseModel):
     footprint_acres: float | None = None
     flexible_connection: bool | None = None
     footprint_geojson: dict[str, Any] | None = None
+    # The polygons the user clicked on (INSPIRE ids of candidates). None: the footprint decides.
+    title_ids: list[str] | None = None
+    # Polygons added from the `/inspire` search outside the candidates; the confirm activity fetches them again.
+    added_ids: list[str] = Field(default_factory=list)
+    # Title numbers typed by the user, per INSPIRE id (from the legal pack; not checked).
+    user_title_numbers: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _normalise_title_numbers(self) -> SiteDecision:
+        """Title numbers upper case without spaces, in the registry's format (letters then digits)."""
+        clean: dict[str, str] = {}
+        for inspire_id, number in self.user_title_numbers.items():
+            n = re.sub(r"\s+", "", number).upper()
+            if not n:
+                continue
+            if not re.fullmatch(TITLE_NUMBER_RE, n):
+                msg = f"{number!r} is not a title number (1 to 3 letters then digits, e.g. SY123456)"
+                raise ValueError(msg)
+            clean[inspire_id] = n
+        self.user_title_numbers = clean
+        return self
+
+    def check_titles(self, candidate_ids: set[str]) -> None:
+        """Raise ValueError unless every clicked polygon is a candidate and added ids look like INSPIRE ids."""
+        unknown = sorted(set(self.title_ids or ()) - candidate_ids)
+        if unknown:
+            msg = f"Not among the candidate polygons: {', '.join(unknown[:10])}"
+            raise ValueError(msg)
+        bad = [i for i in self.added_ids if not i.isdigit()]
+        if bad:
+            msg = f"Not INSPIRE ids: {', '.join(bad[:10])}"
+            raise ValueError(msg)
+        stray = sorted(set(self.user_title_numbers) - candidate_ids - set(self.added_ids))
+        if stray:
+            msg = f"Title numbers given for polygons that are not candidates: {', '.join(stray[:10])}"
+            raise ValueError(msg)
+
+
+class TitleSiteInput(BaseModel):
+    """Everything the confirmation step needs: the pre-HITL title result and the human's decision."""
+
+    run_id: str
+    title: TitleOutput
+    origin: Position  # the pin the candidates were searched around
+    position: Position  # the confirmed pin
+    capacity_mw: float
+    footprint_geojson: dict[str, Any] | None = None
+    title_ids: list[str] | None = None
+    added_ids: list[str] = Field(default_factory=list)
+    user_title_numbers: dict[str, str] = Field(default_factory=dict)
 
 
 class ConfirmedSite(BaseModel):

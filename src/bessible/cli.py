@@ -15,7 +15,15 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from bessible.config import settings
 from bessible.credentials import CredentialsError, encrypt_google_key
 from bessible.footprint import footprint_polygon, reserved_acres, reserved_acres_by_duration
-from bessible.models import AssessmentRequest, AssessmentResult, EncryptedCredentials, Position, RunStatus, SiteDecision
+from bessible.models import (
+    AssessmentRequest,
+    AssessmentResult,
+    EncryptedCredentials,
+    Position,
+    RunStatus,
+    SiteDecision,
+    TitleOutput,
+)
 from bessible.recorder import record_live_run
 from bessible.ukpn import SnapshotNotFoundError, get_snapshot, snapshot_age_days
 from bessible.workflow import TASK_QUEUE, AssessmentWorkflow
@@ -118,6 +126,20 @@ def _build_footprint_polygon(position: Position | None, capacity_mw: float) -> d
     return footprint_polygon(position, mid_acres)
 
 
+def _print_titles(title: TitleOutput) -> None:
+    """The pin polygon, the candidates and every title number with its source."""
+    pin = title.pin_parcel
+    where = f"INSPIRE {pin.inspire_id} ({pin.area_m2 / 10_000:.2f} ha)" if pin else "on no INSPIRE polygon"
+    print(f"Pin polygon:        {where}; {len(title.candidates)} polygons around it")  # ruff: ignore[print]
+    for n in title.title_numbers:
+        owner = f", {n.proprietor}" if n.proprietor else ""
+        print(f"Title number:       {n.title_number} ({n.source}, linked to the {n.link}{owner})")  # ruff: ignore[print]
+    if not title.title_numbers:
+        print("Title number:       not known (the INSPIRE index has none)")  # ruff: ignore[print]
+    for note in title.notes:
+        print(f"  note: {note}")  # ruff: ignore[print]
+
+
 async def _handle_confirmation_prompt(
     handle: WorkflowHandle[Any, Any],
     status: RunStatus,
@@ -138,7 +160,7 @@ async def _handle_confirmation_prompt(
     print(f"Binding Direction:  {cap.binding_direction or 'None'} ({cap.binding_season or 'N/A'})")  # ruff: ignore[print]
 
     if status.boundary:
-        print(f"Title Number:       {status.boundary.title_number} ({status.boundary.area_m2:,.0f} m²)")  # ruff: ignore[print]
+        _print_titles(status.boundary)
     print(f"Reserved Area:      {_format_footprint(cap.recommended_mw)}")  # ruff: ignore[print]
 
     if auto_yes:

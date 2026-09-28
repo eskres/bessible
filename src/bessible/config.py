@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # Operator-side Tavily key for the local news search (a data source, like UKPN_API_KEY; never per user).
     # Tests unset it to stay offline.
     tavily_api_key: SecretStr | None = None
+    # Operator-side HM Land Registry key (use-land-property-data.service.gov.uk) for the free CCOD / OCOD company
+    # ownership files. Optional; the CCOD and OCOD licences must be accepted once in the web service.
+    hmlr_api_key: SecretStr | None = None
 
     # Outside the bundled (Dorking-only) UKPN snapshot, look up live DNO headroom. Tests turn it off to stay offline.
     live_capacity: bool = True

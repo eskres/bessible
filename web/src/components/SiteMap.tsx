@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import { CableRoute, PositionCoords, SiteData, SubstationOption } from '../lib/types';
+import { CableRoute, PositionCoords, SiteData, SubstationOption, TitleParcel } from '../lib/types';
 import type { RuntimeConfig } from '../lib/auth';
 import {
   generateFootprintPolygon,
@@ -10,7 +10,7 @@ import {
   clampPositionWithinDistance,
   footprintHalfDiagonalKm,
 } from '../lib/footprint';
-import { Zap, Layers, MapPinOff } from 'lucide-react';
+import { Zap, Layers, MapPinOff, Grid2x2Plus } from 'lucide-react';
 
 /** Material Symbols "layers" icon, to match Google's own map controls. */
 function GoogleLayersIcon({ className }: { className?: string }) {
@@ -45,7 +45,24 @@ interface SiteMapProps {
   readOnly?: boolean;
   /** Height classes for the map box; defaults to the workspace size. */
   heightClassName?: string;
+  /** INSPIRE polygons the user can click (the title stage's candidates, plus any loaded from /inspire). */
+  titleParcels?: TitleParcel[];
+  /** The polygon under the original pin. */
+  pinParcelId?: string | null;
+  /** The polygons the site covers now. */
+  siteParcelIds?: string[];
+  /** Share labels drawn on the site polygons: [lng, lat] and text. */
+  parcelLabels?: { id: string; position: [number, number]; text: string }[];
+  onParcelClick?: (parcel: TitleParcel) => void;
+  /** Loads the INSPIRE polygons in the current view (for polygons outside the candidates). */
+  onLoadParcelsInView?: (bbox: [number, number, number, number]) => void;
+  loadingParcels?: boolean;
 }
+
+const PARCEL_SITE_FILL = '#f97316';
+const PARCEL_SITE_STROKE = '#c2410c';
+const PARCEL_PIN_STROKE = '#7c2d12';
+const PARCEL_CANDIDATE_STROKE = '#e11d48';
 
 type MapsError = 'missing' | 'rejected' | 'failed';
 
@@ -200,6 +217,13 @@ export default function SiteMap({
   freePlacement = false,
   readOnly = false,
   heightClassName = 'h-[48vh] min-h-[370px] sm:h-[72vh] sm:min-h-[560px]',
+  titleParcels,
+  pinParcelId,
+  siteParcelIds,
+  parcelLabels,
+  onParcelClick,
+  onLoadParcelsInView,
+  loadingParcels = false,
 }: SiteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -217,6 +241,9 @@ export default function SiteMap({
   const titleRefs = useRef<google.maps.Polygon[]>([]);
   const gridLinesRef = useRef<google.maps.Data | null>(null);
   const inspireRef = useRef<google.maps.Data | null>(null);
+  const parcelLayerRef = useRef<google.maps.Data | null>(null);
+  const parcelLabelRefs = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const parcelClickRef = useRef<{ byId: Map<string, TitleParcel>; onClick?: (p: TitleParcel) => void }>({ byId: new Map() });
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapsError, setMapsError] = useState<MapsError | null>(null);
   const [mapMode, setMapMode] = useState<'streets' | 'satellite'>('streets');
@@ -607,7 +634,8 @@ export default function SiteMap({
     const fmt = (v: unknown, unit = '') => (typeof v === 'number' ? `${Math.round(v * 10) / 10}${unit}` : 'n/a');
 
     // Title: a white halo under the orange outline, both above every other shape
-    const titlePaths = siteData?.title ? polygonPaths(siteData.title.geometry) : [];
+    // The title stage's polygons, when shown, replace the one title under the pin
+    const titlePaths = siteData?.title && !titleParcels?.length ? polygonPaths(siteData.title.geometry) : [];
     if (titlePaths.length) {
       titleRefs.current = [
         new google.maps.Polygon({
@@ -712,7 +740,77 @@ export default function SiteMap({
          ${sub.gsp ? `<div>GSP: ${esc(sub.gsp)}${sub.bsp ? ` · BSP: ${esc(sub.bsp)}` : ''}</div>` : ''}`
       );
     });
-  }, [mapLoaded, siteData]);
+  }, [mapLoaded, siteData, titleParcels?.length]);
+
+  // Title polygons: candidates faint, the site filled, the pin's own polygon outlined dark; a click toggles one
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    if (!parcelLayerRef.current) {
+      const layer = new google.maps.Data({ map: mapRef.current });
+      layer.addListener('click', (e: google.maps.Data.MouseEvent) => {
+        const { byId, onClick } = parcelClickRef.current;
+        const parcel = byId.get(String(e.feature.getProperty('inspire_id')));
+        if (parcel && onClick) onClick(parcel);
+      });
+      parcelLayerRef.current = layer;
+    }
+    const layer = parcelLayerRef.current;
+    layer.forEach((f) => layer.remove(f));
+    parcelClickRef.current.byId = new Map((titleParcels ?? []).map((p) => [p.inspire_id, p]));
+    if (!titleParcels?.length) return;
+    layer.addGeoJson({
+      type: 'FeatureCollection',
+      features: titleParcels.map((p) => ({ type: 'Feature', id: p.inspire_id, geometry: p.geometry, properties: { inspire_id: p.inspire_id } })),
+    });
+  }, [mapLoaded, titleParcels]);
+
+  useEffect(() => {
+    parcelClickRef.current.onClick = readOnly ? undefined : onParcelClick;
+    const layer = parcelLayerRef.current;
+    if (!layer) return;
+    const site = new Set(siteParcelIds ?? []);
+    layer.setStyle((f) => {
+      const id = String(f.getProperty('inspire_id'));
+      const onSite = site.has(id);
+      const isPin = id === pinParcelId;
+      return {
+        strokeColor: isPin ? PARCEL_PIN_STROKE : onSite ? PARCEL_SITE_STROKE : PARCEL_CANDIDATE_STROKE,
+        strokeWeight: isPin ? 3 : onSite ? 2 : 1,
+        strokeOpacity: onSite || isPin ? 0.95 : 0.45,
+        fillColor: onSite ? PARCEL_SITE_FILL : PARCEL_CANDIDATE_STROKE,
+        fillOpacity: onSite ? 0.32 : 0.04,
+        clickable: !readOnly && !!onParcelClick,
+        cursor: 'pointer',
+        zIndex: onSite ? 8 : 3,
+      };
+    });
+  }, [mapLoaded, titleParcels, siteParcelIds, pinParcelId, onParcelClick, readOnly]);
+
+  // Share of the footprint on each site polygon, as a small label
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    parcelLabelRefs.current.forEach((m) => (m.map = null));
+    parcelLabelRefs.current = (parcelLabels ?? []).map((l) => {
+      const el = document.createElement('div');
+      el.className =
+        'pointer-events-none bg-white/95 text-orange-800 border border-orange-300 rounded px-1.5 py-0.5 text-[10px] font-semibold font-mono shadow';
+      el.textContent = l.text;
+      return new google.maps.marker.AdvancedMarkerElement({
+        map: mapRef.current,
+        position: toLatLng(l.position),
+        content: centered(el),
+        zIndex: 900,
+      });
+    });
+  }, [mapLoaded, parcelLabels]);
+
+  const loadParcelsInView = () => {
+    const b = mapRef.current?.getBounds();
+    if (!b || !onLoadParcelsInView) return;
+    const sw = b.getSouthWest();
+    const ne = b.getNorthEast();
+    onLoadParcelsInView([sw.lng(), sw.lat(), ne.lng(), ne.lat()]);
+  };
 
   // Render INSPIRE Land Registry Parcels if present; clear them when they go away
   useEffect(() => {
@@ -799,6 +897,19 @@ export default function SiteMap({
               <span>{substations.length} Substation Nodes Polled</span>
             </div>
           )}
+
+          {onLoadParcelsInView && !mapsError && (
+            <button
+              type="button"
+              onClick={loadParcelsInView}
+              disabled={loadingParcels}
+              className="pointer-events-auto self-start bg-card/90 hover:bg-card backdrop-blur-md px-3 py-1.5 rounded-xl shadow-sm border border-border/80 text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+              title="Load HM Land Registry INSPIRE polygons in the current view, to add ones outside the candidates"
+            >
+              <Grid2x2Plus className="w-3.5 h-3.5 text-orange-600" />
+              {loadingParcels ? 'Loading polygons…' : 'Load title polygons in view'}
+            </button>
+          )}
         </div>
 
         {/* Layer Switcher: a Google-style square under the zoom buttons on mobile, a labelled button left of them on wider screens */}
@@ -854,9 +965,17 @@ export default function SiteMap({
               </>
             )}
           </div>
+          {!!titleParcels?.length && (
+            <div className="flex items-center gap-1.5 sm:border-l sm:border-border sm:pl-3">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm border-2 border-orange-700 bg-orange-300"></span>
+              <span>Site polygons ({siteParcelIds?.length ?? 0})</span>
+              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-rose-500/60 ml-1.5"></span>
+              <span>INSPIRE polygons, click to add or remove</span>
+            </div>
+          )}
           {siteData && (
             <>
-              <div className="flex items-center gap-1.5 sm:border-l sm:border-border sm:pl-3">
+              <div className={`flex items-center gap-1.5 sm:border-l sm:border-border sm:pl-3 ${titleParcels?.length ? 'hidden' : ''}`}>
                 <span className="inline-block w-2.5 h-2.5 rounded-sm border-2 border-orange-700 bg-orange-300"></span>
                 <span>Title {siteData.title ? `${siteData.title.area_ha.toFixed(2)} ha` : 'not registered'}</span>
                 {siteData.title && !mapsError && (

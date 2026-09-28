@@ -60,6 +60,12 @@ def main() -> None:
         check("LOGFIRE_TOKEN", settings.logfire_token is not None, "optional: tracing", required=False),
         check("TYPESAFE_API_KEY", settings.typesafe_api_key is not None, "optional: Jev", required=False),
         check(
+            "HMLR_API_KEY",
+            settings.hmlr_api_key is not None,
+            "optional: CCOD / OCOD title numbers (then `uv run python scripts/hmlr_ownership.py`)",
+            required=False,
+        ),
+        check(
             f"Temporal server at {settings.temporal_address}",
             asyncio.run(temporal_reachable()),
             "run `temporal server start-dev` in another terminal",

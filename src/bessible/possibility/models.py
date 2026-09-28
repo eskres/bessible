@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from bessible.location import LocationData
 
@@ -43,6 +43,25 @@ class Proposal(BaseModel):
         return self.battery_mw * self.duration_h
 
 
+# What each check looks at, as a heading that reads right next to any outcome ("Blocker", "OK", ...). The check
+# names say what a pass means ("clear_of_protected_landscape"), which contradicts a blocker.
+CHECK_LABELS = {
+    "title_found": "Title boundary",
+    "enough_area": "Site area",
+    "buildable_slope": "Slope",
+    "outside_flood_zone_3": "Flood risk",
+    "outside_green_belt": "Green belt",
+    "avoids_best_farmland": "Farmland grade",
+    "clear_of_protected_ecology": "Protected habitats",
+    "clear_of_protected_heritage": "Heritage assets",
+    "clear_of_protected_landscape": "Protected landscape",
+    "substation_within_reach": "Substation distance",
+    "grid_headroom": "Grid headroom",
+    "clear_of_overhead_lines": "Overhead lines",
+    "policy_allows_battery_storage": "Local plan policy",
+}
+
+
 class Check(BaseModel):
     """The result of one hard check."""
 
@@ -58,6 +77,12 @@ class Check(BaseModel):
     )
     produced_by: str = Field(default="deterministic rule", description="The rule or model that decided the outcome.")
     confidence: float = Field(default=0.95, ge=0, le=1, description="How far to trust the outcome.")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def label(self) -> str:
+        """What the check looks at, e.g. "Protected landscape": neutral, so it reads right with any outcome."""
+        return CHECK_LABELS.get(self.name, self.name.replace("_", " ").capitalize())
 
 
 class PossibilityReport(BaseModel):

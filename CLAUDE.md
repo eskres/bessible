@@ -62,6 +62,12 @@ model used); the report is built only from artifacts. CLI first; a web UI is opt
   `Artifact`s / `SiteLandOutput` for the existing collation (`SynthesisInput`).
   `uv run python -m bessible.possibility <lat> <lon> [mw] [hours] [--policy] [--json]` runs it on a live location.
 
+- `src/bessible/titles/` — HM Land Registry titles. `search.py`: planning.data `title-boundary` polygon search (cached in
+  `out/cache/titles/`, raises on failure). `parcels.py`: pure geometry (pin polygon, footprint share per polygon, union).
+  `numbers.py`: title numbers stated in listing text. `hmlr.py`: free CCOD / OCOD company ownership (`HMLR_API_KEY`;
+  `uv run python scripts/hmlr_ownership.py` downloads and indexes them; paid datasets are refused). An INSPIRE id is
+  never a title number. `stages/title.py` uses them before HITL (`find_title_boundaries`) and after (`confirm_title_site`).
+
 - `src/bessible/suitability/research.py` — local news: `research_local_news(LocationData)` builds ≤4 queries from
   `locality` / `search_terms`, searches Tavily (`api/tavily.py`, operator key `TAVILY_API_KEY`) with page text, and
   keeps only paragraphs found verbatim in that text (the model may only select). Responses cache in `out/cache/tavily/`;

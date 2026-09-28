@@ -1,15 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import SiteMap from '../SiteMap';
 import SiteControls from '../SiteControls';
 import LiveTrace from '../LiveTrace';
 import ReportView from '../ReportView';
+import TitleParcelsPanel from '../TitleParcelsPanel';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Compass, Sparkles } from 'lucide-react';
 import type { SiteRun } from '../../lib/useSiteRun';
-import { isDemoRun } from '../../lib/api';
-import type { SiteData, SubstationOption } from '../../lib/types';
+import { getInspirePolygons, isDemoRun } from '../../lib/api';
+import { generateFootprintPolygon } from '../../lib/footprint';
+import { parcelsFromCollection, shareLabelPosition } from '../../lib/parcels';
+import type { SiteData, SubstationOption, TitleParcel } from '../../lib/types';
 
 interface RunViewProps {
   run: SiteRun;
@@ -75,6 +78,39 @@ export default function RunView({
         : status === 'failed' || status === 'out_of_area'
           ? 'No capacity for this location'
           : undefined;
+  // Title polygons: shown while the user places the footprint, and locked (read-only) once the engines run
+  const title = runStatus?.boundary;
+  const showTitles = !!title && (status === 'awaiting_confirmation' || engines) && !freePlacement;
+  const [viewParcels, setViewParcels] = useState<{ runId: string | null; parcels: TitleParcel[] }>({ runId: null, parcels: [] });
+  const [loadingParcels, setLoadingParcels] = useState(false);
+  const { titleSite } = run;
+  const mapParcels = useMemo(() => {
+    if (!showTitles) return undefined;
+    const seen = new Set(titleSite.pool.map((p) => p.inspire_id));
+    const extra = viewParcels.runId === run.runId ? viewParcels.parcels.filter((p) => !seen.has(p.inspire_id)) : [];
+    return [...titleSite.pool, ...extra];
+  }, [showTitles, titleSite.pool, viewParcels, run.runId]);
+  const parcelLabels = useMemo(() => {
+    if (!showTitles) return undefined;
+    const footprint = generateFootprintPolygon(run.currentPosition, run.selectedCapacityMw, 4);
+    const onSite = new Set(titleSite.siteIds);
+    return titleSite.shares
+      .filter((s) => onSite.has(s.parcel.inspire_id))
+      .map((s) => ({ id: s.parcel.inspire_id, position: shareLabelPosition(s.parcel, footprint), text: `${s.pct.toFixed(0)}%` }));
+  }, [showTitles, titleSite, run.currentPosition, run.selectedCapacityMw]);
+  const loadParcelsInView = async (bbox: [number, number, number, number]) => {
+    setLoadingParcels(true);
+    try {
+      const fc = await getInspirePolygons(bbox);
+      setViewParcels({ runId: run.runId, parcels: parcelsFromCollection(fc) });
+      if (!fc) run.setErrorMsg('Could not load title polygons here: zoom in (the view must be under 3 km across).');
+    } catch {
+      run.setErrorMsg('Could not load title polygons for this view.');
+    } finally {
+      setLoadingParcels(false);
+    }
+  };
+
   const notViableMessage =
     runStatus?.message || runStatus?.capacity?.message || 'Capacity is below the minimum viable connection threshold.';
 
@@ -190,7 +226,28 @@ export default function RunView({
           siteData={siteData}
           siteDataLoading={siteDataLoading}
           freePlacement={freePlacement}
+          titleParcels={mapParcels}
+          pinParcelId={title?.pin_parcel?.inspire_id}
+          siteParcelIds={showTitles ? titleSite.siteIds : undefined}
+          parcelLabels={parcelLabels}
+          onParcelClick={status === 'awaiting_confirmation' ? run.toggleParcel : undefined}
+          onLoadParcelsInView={status === 'awaiting_confirmation' ? (b) => void loadParcelsInView(b) : undefined}
+          loadingParcels={loadingParcels}
         />
+
+        {showTitles && title && (
+          <TitleParcelsPanel
+            title={title}
+            pool={mapParcels ?? titleSite.pool}
+            shares={titleSite.shares}
+            uncoveredPct={titleSite.uncoveredPct}
+            siteIds={titleSite.siteIds}
+            clicked={run.clickedIds !== null}
+            onToggle={run.toggleParcel}
+            onReset={run.resetParcels}
+            locked={status !== 'awaiting_confirmation'}
+          />
+        )}
 
         <SiteControls
           capacity={cardCapacity}

@@ -109,6 +109,28 @@ def title_boundary(
     return title, geom
 
 
+def site_boundary(
+    geometry: dict[str, Any], coords: Coordinates, inspire_ids: Sequence[str], source_url: str | None = None
+) -> tuple[TitleBoundary, BaseGeometry] | None:
+    """A confirmed site (the union of several INSPIRE polygons) as the boundary everything is measured against."""
+    geom = from_geojson(geometry.get("geometry", geometry))
+    if geom.is_empty or geom.area == 0:
+        return None
+    shape_m = Site(coords, geom).shape_m
+    min_lon, min_lat, max_lon, max_lat = geom.bounds
+    title = TitleBoundary(
+        inspire_id="+".join(inspire_ids) or "site",
+        geometry=to_geometry(geom),
+        area_m2=round(shape_m.area, 1),
+        area_ha=round(shape_m.area / 10_000, 3),
+        perimeter_m=round(shape_m.length, 1),
+        centroid=Coordinates(lat=round(geom.centroid.y, 6), lon=round(geom.centroid.x, 6)),
+        bbox=(min_lon, min_lat, max_lon, max_lat),
+        source_url=source_url or planning_data.EntitySearchRequest.GEOJSON_URL,
+    )
+    return title, geom
+
+
 def locality(
     postcode: postcodes_io.PostcodeResult | None,
     address: nominatim.ReverseResponse | None,

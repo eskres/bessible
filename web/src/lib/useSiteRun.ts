@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AssessmentResult, CapacityOutput, RunStatus, SiteDecision, TraceEvent } from './types';
+import { AssessmentResult, CapacityOutput, RunStatus, SiteDecision, TitleParcel, TraceEvent } from './types';
+import { generateFootprintPolygon } from './footprint';
+import { footprintShares } from './parcels';
 import { getRunResult, getRunStatus, retryStages, sendDecision, subscribeEvents } from './api';
 
 /** Statuses a run never leaves: polling and streaming stop here. */
@@ -41,6 +43,9 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [substationChangeNotice, setSubstationChangeNotice] = useState<string | null>(null);
   const [inspireGeoJson, setInspireGeoJson] = useState<GeoJSON.GeoJSON | null>(null);
+  // Title polygons: null = the polygons under the footprint; else the INSPIRE ids the user clicked on
+  const [clickedIds, setClickedIds] = useState<string[] | null>(null);
+  const [addedParcels, setAddedParcels] = useState<TitleParcel[]>([]); // from /inspire, outside the candidates
 
   const positionedRunRef = useRef<string | null>(null);
   const proposedRunRef = useRef<string | null>(null);
@@ -57,6 +62,28 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     }
   };
 
+  const clearTitles = () => {
+    setClickedIds(null);
+    setAddedParcels([]);
+  };
+
+  /**
+   * Clicks a title polygon on or off. The first click starts from `current`, the polygons under the footprint;
+   * from then on the clicked set is the site. A polygon from /inspire outside the candidates is kept in `added`.
+   */
+  const toggleParcel = (parcel: TitleParcel) => {
+    const base = clickedIds ?? titleSite.siteIds;
+    const on = !base.includes(parcel.inspire_id);
+    setClickedIds(on ? [...base, parcel.inspire_id] : base.filter((id) => id !== parcel.inspire_id));
+    const candidate = runStatus?.boundary?.candidates?.some((p) => p.inspire_id === parcel.inspire_id);
+    if (on && !candidate && !addedParcels.some((p) => p.inspire_id === parcel.inspire_id)) {
+      setAddedParcels([...addedParcels, parcel]);
+    }
+  };
+
+  /** Back to the polygons under the footprint. */
+  const resetParcels = () => setClickedIds(null);
+
   /** Clears the previous run and centres the map. `pin` keeps a user-placed pin instead of the centre. */
   const begin = (center: [number, number], pin?: [number, number]) => {
     releaseRun();
@@ -65,6 +92,7 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     setEvents([]);
     setRunStatus(null);
     setInspireGeoJson(null);
+    clearTitles();
     setSubstationChangeNotice(null);
     // Keep the previous run's capacity card mounted (SiteControls shows it dimmed, under a
     // loading overlay) instead of unmounting it while the new run's data is in flight.
@@ -101,6 +129,7 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     setCapacityProposal(null);
     setCapacityLoading(false);
     setInspireGeoJson(null);
+    clearTitles();
     setSubstationChangeNotice(null);
     positionedRunRef.current = null;
     proposedRunRef.current = null;
@@ -144,13 +173,44 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     }
   };
 
-  const decision = (): SiteDecision => ({
-    confirmed: true,
-    position: currentPosition,
-    capacity_mw: selectedCapacityMw,
-    footprint_acres: selectedCapacityMw * 4 * 0.0625,
-    flexible_connection: flexibleConnection,
-  });
+  // The title polygons the site covers now: the footprint's shares, or the user's clicks
+  const candidates = runStatus?.boundary?.candidates;
+  const confirmedParcels = runStatus?.boundary?.site_parcels;
+  const titleSite = (() => {
+    if (!candidates?.length && confirmedParcels?.length) {
+      // After confirmation the backend's own measurement is the site
+      const shares = confirmedParcels
+        .filter((p) => p.footprint_overlap_pct != null)
+        .map((p) => ({ parcel: p, pct: p.footprint_overlap_pct ?? 0 }));
+      const covered = shares.reduce((sum, s) => sum + s.pct, 0);
+      return {
+        pool: confirmedParcels,
+        shares,
+        uncoveredPct: shares.length ? Math.max(0, 100 - covered) : 0,
+        siteIds: confirmedParcels.map((p) => p.inspire_id),
+      };
+    }
+    const pool = [...(candidates ?? []), ...addedParcels];
+    const footprint = generateFootprintPolygon(currentPosition, selectedCapacityMw, 4);
+    const { shares, uncoveredPct } = footprintShares(pool, footprint);
+    const siteIds = clickedIds ?? shares.map((s) => s.parcel.inspire_id);
+    return { pool, shares, uncoveredPct, siteIds };
+  })();
+
+  /** The site as the user left it. */
+  const decision = (): SiteDecision => {
+    const candidates = new Set((runStatus?.boundary?.candidates ?? []).map((p) => p.inspire_id));
+    return {
+      confirmed: true,
+      position: currentPosition,
+      capacity_mw: selectedCapacityMw,
+      footprint_acres: selectedCapacityMw * 4 * 0.0625,
+      flexible_connection: flexibleConnection,
+      footprint_geojson: generateFootprintPolygon(currentPosition, selectedCapacityMw, 4),
+      title_ids: clickedIds ? clickedIds.filter((id) => candidates.has(id)) : null,
+      added_ids: clickedIds ? clickedIds.filter((id) => !candidates.has(id)) : [],
+    };
+  };
 
   /** Sends the confirmed site to a tracked run; the poll picks up the rest. */
   const submitDecision = async () => {
@@ -294,6 +354,12 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     substationChangeNotice,
     inspireGeoJson,
     setInspireGeoJson,
+    clickedIds,
+    titleSite,
+    addedParcels,
+    setAddedParcels,
+    toggleParcel,
+    resetParcels,
     begin,
     track,
     simulate,

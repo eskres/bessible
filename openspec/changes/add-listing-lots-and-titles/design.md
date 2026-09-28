@@ -134,6 +134,17 @@ Every model call produces an `Artifact` with `model_used` set; deterministic ste
 
 Live fetches write to `out/cache/pages/`, `out/cache/postcodes/` and `out/cache/what3words/` (`out/` is gitignored and already shared by the Docker services). Lookups read the committed fixtures first, then the live cache, then the network; writes never go to `data/fixtures/`. A small script promotes a chosen page to `data/fixtures/pages/` on purpose, trimming it to the blocks and text the tests need. Committed fixtures for portals are invented or anonymised.
 
+### Implemented first slice: `TitleParcel` and title numbers (2026-09-27)
+
+Before lots, the title stage works per polygon (`src/bessible/titles/`, `stages/title.py`):
+
+- **`TitleParcel`** (`models.py`): one INSPIRE polygon (`inspire_id`, `geometry`, `area_m2`, planning.data `source_url`), plus `title_number` / `title_source` / `title_source_url` / `title_link` (`"polygon"` or `"site"`) only when a named source gives one, and `footprint_overlap_pct` (share of the BESS footprint on it). `TitleOutput` holds `pin_parcel`, `candidates` (one polygon search, radius as above, nearest 600 kept), `site_parcels`, `inspire_ids`, `title_numbers` (`TitleNumber`, each with its source) and `notes`; `title_number` is the pin polygon's number or None.
+- **After HITL**, the `confirm_title_site` activity measures the footprint (or the `title_ids` the user clicked) against the candidates, fetches more polygons when the footprint leaves the search circle or the user added ids from `/inspire` (`SiteDecision.added_ids`), and returns the union as `ConfirmedSite.boundary`; `collate(..., site_polygon=)` measures later stages against it.
+- **Title numbers** are never inferred from an INSPIRE id, a neighbour or a model (the free index has none; HMLR refuses an id -> number table; the National Polygon Service is paid). Free sources, best first:
+  1. **Listing text** (`titles/numbers.py`): only numbers after "title number(s)" / "registered under title", as an unbroken list; linked to the site.
+  2. **HMLR CCOD / OCOD** (`titles/hmlr.py`, `HMLR_API_KEY`, licences accepted once in the web service): the monthly full files are downloaded to `out/cache/hmlr/` and indexed by postcode (`scripts/hmlr_ownership.py`); rows at the site postcode or within 150 m are site-level candidates naming the company proprietor. Only `ccod` and `ocod` can be requested.
+  3. **The user** can give a number per site polygon through the API / CLI (`SiteDecision.user_title_numbers`): polygon-level, recorded as "entered by the user, not checked". The web confirmation view has no input for it (dropped 2026-09-28: nothing downstream reads it and it cannot be checked).
+
 ## Risks / Trade-offs
 
 - [Portal changes its app-state shape] → Readers return `None` and the tiers fall through to JSON-LD, meta tags and step 2; fixtures show which path broke.
