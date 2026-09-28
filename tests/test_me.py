@@ -163,3 +163,86 @@ class TestPingGemini:
 
         self._transport(monkeypatch, boom)
         assert (await me.ping_gemini(KEY)).error == "unreachable"
+
+
+TAVILY = "tvly-" + "t" * 20 + "tavy"
+
+
+def test_tavily_key_save_read_delete(client: TestClient, store: KeyStore) -> None:
+    assert client.get("/me/tavily-key").status_code == 404
+    put = client.put("/me/tavily-key", json={"tavily_api_key": TAVILY})
+    assert put.status_code == 200
+    got = client.get("/me/tavily-key")
+    assert got.json()["last4"] == "tavy"
+    assert TAVILY not in put.text
+    assert TAVILY not in got.text
+    assert store.reveal("alice", "tavily") == TAVILY
+    assert client.get("/me/key").status_code == 404  # the Google key is separate
+    assert client.delete("/me/tavily-key").status_code == 204
+    assert client.get("/me/tavily-key").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"tavily_api_key": KEY},
+        {"tavily_api_key": "tvly-short"},
+        {"google_api_key": TAVILY},
+        {"tavily_api_key": TAVILY, "google_api_key": KEY},
+        {},
+    ],
+)
+def test_only_a_tavily_key_is_accepted(client: TestClient, body: dict[str, Any]) -> None:
+    res = client.put("/me/tavily-key", json=body)
+    assert res.status_code == 422
+    for value in body.values():
+        assert value not in res.text
+    assert client.get("/me/tavily-key").status_code == 404
+
+
+class TestTavilyKeyTest:
+    @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - applies to every test here
+    def _ping(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.pinged: list[str] = []
+
+        async def fake(api_key: str) -> me.KeyTestResult:
+            self.pinged.append(api_key)
+            return me.KeyTestResult(ok=True)
+
+        monkeypatch.setattr(me, "ping_tavily", fake)
+
+    def test_uses_key_in_body_without_saving(self, client: TestClient) -> None:
+        res = client.post("/me/tavily-key/test", json={"tavily_api_key": TAVILY})
+        assert res.json() == {"ok": True, "error": None}
+        assert self.pinged == [TAVILY]
+        assert client.get("/me/tavily-key").status_code == 404
+
+    def test_uses_stored_key_without_body(self, client: TestClient) -> None:
+        client.put("/me/tavily-key", json={"tavily_api_key": TAVILY})
+        res = client.post("/me/tavily-key/test")
+        assert res.json()["ok"] is True
+        assert self.pinged == [TAVILY]
+        assert TAVILY not in res.text
+
+    def test_no_key_is_404(self, client: TestClient) -> None:
+        assert client.post("/me/tavily-key/test").status_code == 404
+        assert self.pinged == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("status", "error"), [(200, None), (401, "invalid_key"), (429, "rate_limited")])
+async def test_ping_tavily_reads_usage_status(monkeypatch: pytest.MonkeyPatch, status: int, error: str | None) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(status, json={})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(me.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    res = await me.ping_tavily(TAVILY)
+    assert res.error == error
+    assert res.ok is (error is None)
+    assert seen[0].method == "GET"
+    assert seen[0].url.path == "/usage"
+    assert seen[0].headers["authorization"] == f"Bearer {TAVILY}"

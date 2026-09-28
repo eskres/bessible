@@ -1,4 +1,5 @@
-"""Seal and open a run owner's Google key. The plaintext key exists only inside `decrypt_google_key`'s caller."""
+"""Seal and open a run owner's keys. A plaintext key exists only inside the caller of `decrypt_google_key` or
+`decrypt_tavily_key`."""
 
 from __future__ import annotations
 
@@ -54,17 +55,26 @@ def encrypt_google_key(uid: str, api_key: str) -> EncryptedCredentials:
     return EncryptedCredentials(uid=uid, key_id=key_id, google_ct=base64.urlsafe_b64encode(nonce + ciphertext).decode())
 
 
+def _open(uid: str, key_id: str, sealed: str, what: str) -> str:
+    try:
+        blob = base64.urlsafe_b64decode(sealed)
+        nonce, ciphertext = blob[:NONCE_BYTES], blob[NONCE_BYTES:]
+        return _cipher(uid, key_id).decrypt(nonce, ciphertext, uid.encode()).decode()
+    except (InvalidTag, ValueError) as exc:
+        msg = f"The run's {what} key could not be decrypted"
+        raise InvalidCredentialsError(msg) from exc
+
+
 def decrypt_google_key(credentials: EncryptedCredentials | None) -> str:
     """Open the run's Google key. Raises `MissingGoogleKeyError` when there is none: no server key stands in."""
     if credentials is None or not credentials.google_ct:
         msg = "This run has no Google key"
         raise MissingGoogleKeyError(msg)
-    try:
-        blob = base64.urlsafe_b64decode(credentials.google_ct)
-        nonce, ciphertext = blob[:NONCE_BYTES], blob[NONCE_BYTES:]
-        return (
-            _cipher(credentials.uid, credentials.key_id).decrypt(nonce, ciphertext, credentials.uid.encode()).decode()
-        )
-    except (InvalidTag, ValueError) as exc:
-        msg = "The run's Google key could not be decrypted"
-        raise InvalidCredentialsError(msg) from exc
+    return _open(credentials.uid, credentials.key_id, credentials.google_ct, "Google")
+
+
+def decrypt_tavily_key(credentials: EncryptedCredentials | None) -> str | None:
+    """Open the run owner's Tavily key, or None when they saved none (the server's `TAVILY_API_KEY` then applies)."""
+    if credentials is None or not credentials.tavily_ct or not credentials.tavily_key_id:
+        return None
+    return _open(credentials.uid, credentials.tavily_key_id, credentials.tavily_ct, "Tavily")

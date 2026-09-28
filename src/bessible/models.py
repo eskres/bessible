@@ -25,11 +25,16 @@ Verdict = Literal["go", "maybe", "no_go"]
 
 
 class EncryptedCredentials(BaseModel):
-    """The run owner's Google key as ciphertext (plain `str`, never `SecretStr`: Temporal would mask or store it)."""
+    """The run owner's keys as ciphertext (plain `str`, never `SecretStr`: Temporal would mask or store it).
+
+    The Google key is required. The Tavily key is optional; without it, Tavily calls use the server's key.
+    """
 
     uid: str
     key_id: str
     google_ct: str
+    tavily_ct: str | None = None
+    tavily_key_id: str | None = None  # the master secret may rotate between the two saves
 
 
 class Position(BaseModel):

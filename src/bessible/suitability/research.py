@@ -513,11 +513,15 @@ async def research_local_news(
     model: Model | None = None,
     today: date | None = None,
     client: httpx.AsyncClient | None = None,
+    tavily_key: str | None = None,
 ) -> Research:
-    """Search UK news near the site and keep verbatim paragraphs. Never raises: a failure is `unavailable`."""
+    """Search UK news near the site and keep verbatim paragraphs. Never raises: a failure is `unavailable`.
+
+    Searches on the run owner's `tavily_key`, else the server's `TAVILY_API_KEY`.
+    """
     if client is None:
         async with httpx.AsyncClient(headers={"User-Agent": "bessible"}) as own:
-            return await research_local_news(location, model=model, today=today, client=own)
+            return await research_local_news(location, model=model, today=today, client=own, tavily_key=tavily_key)
     today = today or date.today()  # ruff: ignore[call-date-today] - activity code, not workflow code
     where = location.deterministic.locality
     place = where.place or next(iter(location.agentic.search_terms), None) or "the site"
@@ -530,7 +534,7 @@ async def research_local_news(
         research.unavailable = "No place name for this site (lookup failed), so no news search could run."
         return research
 
-    api_key = settings.tavily_api_key.get_secret_value() if settings.tavily_api_key else None
+    api_key = tavily_key or (settings.tavily_api_key.get_secret_value() if settings.tavily_api_key else None)
     requests = [search_request(q.text, today) for q in queries]
     got = await asyncio.gather(
         *(_search(client, r, tavily.SearchResponse, api_key, today) for r in requests), return_exceptions=True
@@ -550,7 +554,7 @@ async def research_local_news(
             research.unavailable = sanitize_untrusted_text(f"news search failed ({type(e).__name__}: {e})", max_len=200)
         else:
             research.status = "not_configured"
-            research.unavailable = "news search not configured (no TAVILY_API_KEY on this server)"
+            research.unavailable = "news search not configured (no Tavily key in Settings or on this server)"
         return research
     if errors:  # some queries answered: report what they found, but say the search was partial
         research.retryable = True

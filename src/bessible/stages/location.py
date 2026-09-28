@@ -18,12 +18,15 @@ if TYPE_CHECKING:
 QUALITY_CONFIDENCE_LIMIT = 4  # postcodes.io positional quality 1-4 is a unit-postcode centroid or better
 
 
-async def resolve_location(inp: LocationInput, *, model: Model | None = None) -> LocationOutput:
+async def resolve_location(
+    inp: LocationInput, *, model: Model | None = None, tavily_key: str | None = None
+) -> LocationOutput:
     """Resolve a map pin, postcode or property link to coordinates and canonical postcode.
 
     A map pin is the exact site: it wins, and the nearest postcode only labels it.
     Else if a postcode is provided in the request, it wins and no page is fetched.
-    Otherwise, the property link is fetched and the run's `model` extracts location details.
+    Otherwise, the property link is fetched (through Tavily on `tavily_key` if the portal blocks us) and the run's
+    `model` extracts location details.
 
     Raises:
         LocationNotFound: if extraction fails, no address exists, non-UK, or postcode invalid.
@@ -54,7 +57,7 @@ async def resolve_location(inp: LocationInput, *, model: Model | None = None) ->
         msg = "No property link or postcode was provided. Please pass --postcode."
         raise LocationNotFound(msg)
 
-    return await resolve_from_link(str(target_url), inp.run_id, model=model)
+    return await resolve_from_link(str(target_url), inp.run_id, model=model, tavily_key=tavily_key)
 
 
 async def _resolve_pin(pos: Position, run_id: str) -> LocationOutput:

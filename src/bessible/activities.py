@@ -9,7 +9,7 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from bessible import events, stages
-from bessible.credentials import InvalidCredentialsError, MissingGoogleKeyError
+from bessible.credentials import InvalidCredentialsError, MissingGoogleKeyError, decrypt_tavily_key
 from bessible.geocode import PostcodeNotFoundError
 from bessible.llm import run_model
 from bessible.location.extract import LocationNotFound
@@ -54,13 +54,21 @@ def _model_for(request: AssessmentRequest) -> Model:
         raise ApplicationError(str(exc), type="InvalidCredentials", non_retryable=True) from exc
 
 
+def _tavily_key_for(request: AssessmentRequest) -> str | None:
+    """The run owner's Tavily key, or None to use the server's. An unreadable key fails like an unreadable Google key."""
+    try:
+        return decrypt_tavily_key(request.credentials)
+    except InvalidCredentialsError as exc:
+        raise ApplicationError(str(exc), type="InvalidCredentials", non_retryable=True) from exc
+
+
 @activity.defn
 async def resolve_location(inp: LocationInput) -> LocationOutput:
     """Temporal activity for location resolution stage."""
     events.emit(inp.run_id, "location", "Resolving site location and postcode")
     model = _model_for(inp.request)  # first activity: a keyless run stops here, before any later stage
     try:
-        res = await stages.location.resolve_location(inp, model=model)
+        res = await stages.location.resolve_location(inp, model=model, tavily_key=_tavily_key_for(inp.request))
     except ValidationError as exc:
         raise ApplicationError(str(exc), type="ValidationError", non_retryable=True) from exc
     except PostcodeNotFoundError as exc:
@@ -244,7 +252,7 @@ async def local_sentiment(inp: NodeInput) -> SentimentOutput:
     events.emit(inp.run_id, "sentiment", "Analyzing local community sentiment and planning records")
     model = _model_for(inp.request)
     try:
-        res = await stages.sentiment.local_sentiment(inp, model=model)
+        res = await stages.sentiment.local_sentiment(inp, model=model, tavily_key=_tavily_key_for(inp.request))
     except ValidationError as exc:
         raise ApplicationError(str(exc), type="ValidationError", non_retryable=True) from exc
     else:

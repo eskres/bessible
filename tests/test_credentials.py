@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import SecretStr
 
-from bessible.credentials import InvalidCredentialsError, MissingGoogleKeyError, decrypt_google_key
+from bessible.credentials import (
+    InvalidCredentialsError,
+    MissingGoogleKeyError,
+    decrypt_google_key,
+    decrypt_tavily_key,
+)
 from bessible.llm import run_model
 
 if TYPE_CHECKING:
@@ -63,3 +68,14 @@ def test_no_key_raises_and_never_falls_back(
     empty = seal("user-a", KEY).model_copy(update={"google_ct": ""}) if credentials else None
     with pytest.raises(MissingGoogleKeyError):
         run_model(empty)
+
+
+def test_tavily_key_is_optional_and_bound_to_its_owner(seal: Callable[[str, str], EncryptedCredentials]):
+    sealed = seal("user-a", KEY)
+    assert decrypt_tavily_key(sealed) is None
+    assert decrypt_tavily_key(None) is None
+    tavily = seal("user-a", "tvly-secret")
+    with_tavily = sealed.model_copy(update={"tavily_ct": tavily.google_ct, "tavily_key_id": tavily.key_id})
+    assert decrypt_tavily_key(with_tavily) == "tvly-secret"
+    with pytest.raises(InvalidCredentialsError):
+        decrypt_tavily_key(with_tavily.model_copy(update={"uid": "user-b"}))
