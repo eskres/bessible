@@ -315,3 +315,9 @@ def test_every_check_has_a_neutral_label_used_in_its_artifact():
     art = artifact_from(check.model_copy(update={"source_urls": ["https://example.com/"]}), "run-1")
     assert art is not None
     assert art.claim.startswith("Blocker: Protected landscape — South Downs National Park covers")
+
+
+def test_a_joined_site_names_a_few_polygons_and_counts_the_rest():
+    site = title(area_ha=10.58).model_copy(update={"inspire_id": "+".join(str(n) for n in range(1, 21))})
+    reason = hard.title_found(propose(title=site)).reason
+    assert reason == "20 INSPIRE polygons (1, 2, 3 and 17 more) cover 10.58 ha."

@@ -1,7 +1,7 @@
 {
   "status": "completed",
   "message": null,
-  "run_id": "bessible-record-histon-c2af0553",
+  "run_id": "bessible-record-histon-05bf1291",
   "postcode": "CB24 9ZR",
   "report": {
     "verdict": "maybe",
@@ -5997,7 +5997,7 @@
       {
         "id": "capacity-live-check-bessible",
         "stage": "capacity",
-        "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+        "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
         "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
         "file_path": null,
         "image_path": null,
@@ -6090,7 +6090,7 @@
     {
       "id": "capacity-live-check-bessible",
       "stage": "capacity",
-      "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+      "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
       "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
       "file_path": null,
       "image_path": null,
@@ -6350,7 +6350,7 @@
     {
       "id": "site_land-title_found-bessible",
       "stage": "site_land",
-      "claim": "OK: Title boundary — Title 39174767+53926009+39156756+39173750+39160413+63054396+39172036+39165193+53149890+39161490+39174973+53947487+39175500+39172139+54643284+59939018+61779173+42182118+39154978+53947536 covers 10.58 ha.",
+      "claim": "OK: Title boundary — 20 INSPIRE polygons (39174767, 53926009, 39156756 and 17 more) cover 10.58 ha.",
       "source_url": "https://www.planning.data.gov.uk/entity.geojson?dataset=title-boundary&longitude=0.108173&latitude=52.244997&geometry_relation=intersects",
       "file_path": null,
       "image_path": null,
@@ -6391,7 +6391,7 @@
       "id": "site_land-outside_green_belt-bessible",
       "stage": "site_land",
       "claim": "Caveat: Green belt — In the green belt (South Cambridgeshire): needs very special circumstances.",
-      "source_url": "https://www.planning.data.gov.uk/entity.json",
+      "source_url": "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/Agricultural_Land_Classification_Post_1988/FeatureServer/0/query?geometry=0.08302%2C52.243766%2C0.111159%2C52.259808&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=4326&geometryPrecision=6&maxAllowableOffset=1e-05&f=geojson",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -6401,7 +6401,7 @@
       "id": "site_land-avoids_best_farmland-bessible",
       "stage": "site_land",
       "claim": "Caveat: Farmland grade — Best and most versatile farmland (Urban 71.8%, Grade 3 16.3%, Grade 2 11.9%): policy steers development away.",
-      "source_url": "https://www.planning.data.gov.uk/entity.json",
+      "source_url": "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/Agricultural_Land_Classification_Post_1988/FeatureServer/0/query?geometry=0.08302%2C52.243766%2C0.111159%2C52.259808&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=4326&geometryPrecision=6&maxAllowableOffset=1e-05&f=geojson",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -6411,7 +6411,7 @@
       "id": "site_land-clear_of_protected_ecology-bessible",
       "stage": "site_land",
       "claim": "OK: Protected habitats — None on the title (sssi, sac, spa, ramsar, national_nature_reserve, ancient_woodland).",
-      "source_url": "https://www.planning.data.gov.uk/entity.json",
+      "source_url": "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/SSSI_Impact_Risk_Zones_England/FeatureServer/0/query?geometry=0.08302%2C52.243766%2C0.111159%2C52.259808&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=4326&geometryPrecision=6&maxAllowableOffset=1e-05&f=geojson",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -6421,7 +6421,7 @@
       "id": "site_land-clear_of_protected_heritage-bessible",
       "stage": "site_land",
       "claim": "OK: Heritage assets — None on the title (scheduled_monument, registered_park_or_garden, registered_battlefield, world_heritage_site).",
-      "source_url": "https://www.planning.data.gov.uk/entity.json",
+      "source_url": "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/SSSI_Impact_Risk_Zones_England/FeatureServer/0/query?geometry=0.08302%2C52.243766%2C0.111159%2C52.259808&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=4326&geometryPrecision=6&maxAllowableOffset=1e-05&f=geojson",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -6431,7 +6431,7 @@
       "id": "site_land-clear_of_protected_landscape-bessible",
       "stage": "site_land",
       "claim": "OK: Protected landscape — None on the title (national_park, national_landscape).",
-      "source_url": "https://www.planning.data.gov.uk/entity.json",
+      "source_url": "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/SSSI_Impact_Risk_Zones_England/FeatureServer/0/query?geometry=0.08302%2C52.243766%2C0.111159%2C52.259808&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=4326&geometryPrecision=6&maxAllowableOffset=1e-05&f=geojson",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -6640,7 +6640,7 @@
     {
       "id": "planning-summary-bessible",
       "stage": "planning",
-      "claim": "Standalone battery storage of any capacity in England falls under the jurisdiction of the local planning authority regardless of megawatt capacity, having been removed from the Nationally Significant Infrastructure Projects (NSIP) regime in 2020. National planning policy strongly supports energy storage, with NPPF Chapter 14 directing authorities to support low carbon infrastructure and NPS EN-1 establishing an urgent national need for storage to provide grid flexibility, resilience, and renewable balancing. Proposals are expected to incorporate landscape mitigation, acoustic fencing, and environmental screening near grid infrastructure per PPG guidance, while adhering to NFCC guidance requiring a Battery Safety Management Plan addressing thermal runaway risks and emergency access.",
+      "claim": "Under The Infrastructure Planning (Electricity Storage Facilities) Order 2020, standalone battery storage of any capacity in England is excluded from the NSIP regime, maintaining local planning authority jurisdiction, while national policy establishes a clear need for electricity storage to support grid resilience, energy security, and the transition to net zero. Planning Practice Guidance promotes co-locating energy storage with existing grid infrastructure subject to landscape and acoustic mitigation, while National Fire Chiefs Council guidance requires a Battery Safety Management Plan addressing thermal runaway mitigation, separation distances, and emergency access.",
       "source_url": "https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv",
       "file_path": null,
       "image_path": null,
@@ -6670,5 +6670,5 @@
   ],
   "gaps": [],
   "retries_left": 0,
-  "run_dir": "out/bessible-record-histon-c2af0553"
+  "run_dir": "out/bessible-record-histon-05bf1291"
 }

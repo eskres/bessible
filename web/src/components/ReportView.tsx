@@ -623,9 +623,9 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                     <span className={`shrink-0 w-20 text-center px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase ${tone}`}>
                       {outcome}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-semibold capitalize text-foreground">{name}</div>
-                      <div className="text-muted-foreground mt-0.5">{reason}</div>
+                      <div className="text-muted-foreground mt-0.5 break-words">{reason}</div>
                     </div>
                   </div>
                 );

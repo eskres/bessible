@@ -169,7 +169,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -350,7 +350,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -33954,7 +33954,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -39744,7 +39744,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -45420,28 +45420,40 @@
             "distance_km": 0.22,
             "size_mw": 8.0,
             "marginal": false,
-            "position": null
+            "position": {
+              "lat": 52.24319473076745,
+              "lon": 0.1068681484881494
+            }
           },
           {
             "substation": "Arbury Grid 33kV",
             "distance_km": 1.93,
             "size_mw": 35.1,
             "marginal": true,
-            "position": null
+            "position": {
+              "lat": 52.23504603095682,
+              "lon": 0.1314721300156129
+            }
           },
           {
             "substation": "Arbury Grid 11kV",
             "distance_km": 1.9,
             "size_mw": 8.0,
             "marginal": true,
-            "position": null
+            "position": {
+              "lat": 52.23558693934513,
+              "lon": 0.1315263982659725
+            }
           },
           {
             "substation": "Storeys Way Primary 11kV",
             "distance_km": 3.52,
             "size_mw": 5.0,
             "marginal": true,
-            "position": null
+            "position": {
+              "lat": 52.21340049754961,
+              "lon": 0.1055059655356688
+            }
           }
         ],
         "tia_threshold_mw": 1,
@@ -45519,7 +45531,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:34 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
