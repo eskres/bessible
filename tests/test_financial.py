@@ -115,6 +115,11 @@ def test_returns_and_budget():
     assert r1.irr == r2.irr
     assert r1.over_budget is True  # capex > 5m
 
+    # Equity is the capex the loan does not cover, plus the arrangement fee on the loan
+    debt = c4.capex_gbp * a.number("debt_share_pct") / 100
+    expected_equity = c4.capex_gbp - debt + debt * a.number("arrangement_fee_pct") / 100
+    assert r1.equity_gbp == pytest.approx(expected_equity, abs=0.01)
+
     # Budget check flags over budget appropriately
     r_high_budget = returns(c4, 94000.0, 5.0, 10.0, a, budget_gbp=50_000_000.0)
     assert r_high_budget.over_budget is False
@@ -167,6 +172,11 @@ async def test_financial_stage_end_to_end():
     # Returns artifact documents returns and flags cases over budget if applicable
     ret_art = next(a for a in out.artifacts if "returns" in a.id)
     assert "25-year returns:" in ret_art.claim
+
+    # Financing terms travel with the output so the report can explain the figures
+    assert out.debt_share_pct == 70
+    assert out.loan_term_years == 15
+    assert all(c.equity_gbp for c in out.cases)
 
 
 @pytest.mark.anyio
