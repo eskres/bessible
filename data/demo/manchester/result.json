@@ -1,6 +1,8 @@
 {
   "status": "out_of_area",
   "message": "No primary substation with published headroom within 5 km. Live data covers UK Power Networks, NGED, SSEN, SP Energy Networks and Northern Powergrid areas; other network operators (e.g. Electricity North West) are not supported yet",
+  "run_id": "bessible-record-manchester-aa8f287c",
+  "postcode": "M1 1AD",
   "report": null,
   "financial": null,
   "site": null,
@@ -59,5 +61,7 @@
       "model_used": "ukpn-snapshot"
     }
   ],
-  "run_dir": "out/bessible-record-manchester-3c58aead"
+  "gaps": [],
+  "retries_left": 0,
+  "run_dir": "out/bessible-record-manchester-aa8f287c"
 }

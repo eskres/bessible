@@ -183,8 +183,8 @@ The web app supports two workspace modes:
 1. **Live Workspace:** Authenticated mode (Firebase Google sign-in) with Bring Your Own Key (BYOK) for live agent reasoning, live DNO headroom queries, road cable routing, and full report generation. Locally, `AUTH_ENABLED=false` skips sign-in (see [Quick Start](#quick-start-local)).
 2. **Demo Workspace:** Keyless mode requiring no login, no API keys, and no Temporal server. Includes 3 pre-recorded presets from live runs:
    - **Dorking (RH4 1AD):** Primary substation connection with viable headroom in UK Power Networks (UKPN) territory.
-   - **Histon (CB24 9LQ):** Primary substation connection near Cambridge in UKPN territory.
-   - **Manchester (M1 1AE):** Out-of-area scenario in Electricity North West (ENWL) territory, demonstrating clean early termination and supported operator guidance.
+   - **Histon (CB24 9ZR):** Primary substation connection near Cambridge in UKPN territory.
+   - **Manchester (M1 1AD):** Out-of-area scenario in Electricity North West (ENWL) territory, demonstrating clean early termination and supported operator guidance.
    - **Browser Simulation:** Entering any other UK postcode or coordinate in demo mode simulates realistic screening client-side.
    - **URL State Shortcuts:**
      - `http://localhost:3000/?state=demo` — open Demo Workspace directly.

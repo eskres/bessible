@@ -7,5 +7,6 @@
   "flexible_connection": false,
   "link": null,
   "target_mw": null,
-  "credentials": null
+  "credentials": null,
+  "retry_window_s": 0
 }
