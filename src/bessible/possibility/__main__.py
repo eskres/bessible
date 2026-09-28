@@ -35,7 +35,7 @@ def main() -> None:
         sys.stdout.write(report.model_dump_json(indent=2) + "\n")
         return
     for check in report.checks:
-        sys.stdout.write(f"{MARKS[check.outcome]}  {check.name:30} {check.reason}\n")
+        sys.stdout.write(f"{MARKS[check.outcome]}  {check.label:22} {check.reason}\n")
     sys.stdout.write(f"\n{'POSSIBLE' if report.possible else 'BLOCKED'}: {mw:g} MW / {hours:g} h at {lat}, {lon}\n")
 
 

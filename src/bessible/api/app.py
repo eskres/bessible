@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -73,11 +74,44 @@ async def get_areas_geojson() -> Response:
     return JSONResponse(content={"type": "FeatureCollection", "features": []})
 
 
+INSPIRE_MAX_SPAN_M = 3000  # a bigger box would page through thousands of town polygons
+INSPIRE_MAX_FEATURES = 1500
+
+
 @app.get("/inspire", tags=["data"], dependencies=[Depends(current_user)])
-async def get_inspire_parcels(_bbox: str | None = None) -> Response:
-    """Proxy/cached HM Land Registry INSPIRE index polygons."""
-    # Return empty FeatureCollection or cached demo polygons
-    return JSONResponse(content={"type": "FeatureCollection", "features": []})
+async def get_inspire_parcels(bbox: str) -> Response:
+    """HM Land Registry INSPIRE index polygons in a box (`min_lon,min_lat,max_lon,max_lat`), from planning.data.
+
+    The same `title-boundary` dataset as the title stage, so the user can add polygons outside its candidates.
+    Features carry `TitleParcel` fields; nearest to the box centre first, at most 1,500.
+    """
+    import httpx  # ruff: ignore[import-outside-top-level]
+
+    from bessible.location.geometry import M_PER_DEG_LAT, M_PER_DEG_LON_EQUATOR  # ruff: ignore[import-outside-top-level]
+    from bessible.models import Position  # ruff: ignore[import-outside-top-level]
+    from bessible.titles import parcels, search  # ruff: ignore[import-outside-top-level]
+
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(v) for v in bbox.split(","))
+    except ValueError:
+        return JSONResponse(status_code=422, content={"detail": "bbox must be min_lon,min_lat,max_lon,max_lat"})
+    if not (min_lon < max_lon and min_lat < max_lat):
+        return JSONResponse(status_code=422, content={"detail": "bbox is empty"})
+    center = Position(lat=(min_lat + max_lat) / 2, lon=(min_lon + max_lon) / 2)
+    span_m = max(
+        (max_lat - min_lat) * M_PER_DEG_LAT,
+        (max_lon - min_lon) * M_PER_DEG_LON_EQUATOR * math.cos(math.radians(center.lat)),
+    )
+    if span_m > INSPIRE_MAX_SPAN_M:
+        return JSONResponse(status_code=422, content={"detail": f"bbox wider than {INSPIRE_MAX_SPAN_M} m: zoom in"})
+    try:
+        response, truncated = await search.search_titles(search.bbox_wkt(min_lon, min_lat, max_lon, max_lat))
+    except httpx.HTTPError as exc:
+        return JSONResponse(status_code=502, content={"detail": f"planning.data title-boundary failed: {exc}"})
+    found = parcels.parcels_from_features(response, center, limit=INSPIRE_MAX_FEATURES)
+    collection = parcels.feature_collection(found)
+    collection["truncated"] = truncated or len(found) == INSPIRE_MAX_FEATURES
+    return JSONResponse(content=collection)
 
 
 _SITE_DATA_CACHE: dict[tuple[float, float], dict[str, object]] = {}

@@ -124,6 +124,10 @@ export async function sendDecision(
 
   if (res.status === 422) {
     const data = await res.json();
+    if (data.allowed_min === undefined) {
+      // A field failed validation, not the capacity range
+      throw new ApiError(res.status, detailMessage(data, 'Decision submission failed'), data);
+    }
     return {
       allowed_min: data.allowed_min,
       allowed_max: data.allowed_max,
@@ -185,9 +189,10 @@ export async function getAreasGeoJson(): Promise<GeoJSON.GeoJSON | null> {
   return res.json();
 }
 
+/** INSPIRE polygons in a box, as `TitleParcel` features (GET /inspire, planning.data title-boundary). */
 export async function getInspirePolygons(
   bbox: [number, number, number, number]
-): Promise<GeoJSON.GeoJSON | null> {
+): Promise<GeoJSON.FeatureCollection | null> {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const res = await apiFetch(`/inspire?bbox=${minLng},${minLat},${maxLng},${maxLat}`);
   if (!res.ok) {

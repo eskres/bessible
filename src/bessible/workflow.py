@@ -37,6 +37,7 @@ with workflow.unsafe.imports_passed_through():
         SynthesisInput,
         TitleInput,
         TitleOutput,
+        TitleSiteInput,
     )
 
 if TYPE_CHECKING:
@@ -179,6 +180,8 @@ class AssessmentWorkflow:
                     f"{self._capacity.firm_mw:g} MW (flexible connection disabled)"
                 )
                 raise ValueError(msg)
+            candidates = {p.inspire_id for p in self._title.candidates} if self._title else set()
+            decision.check_titles(candidates)
 
     async def _run_location_and_capacity(
         self, run_id: str, request: AssessmentRequest, all_artifacts: list[Artifact]
@@ -265,10 +268,28 @@ class AssessmentWorkflow:
             if decision.flexible_connection is not None
             else (self._request.flexible_connection if self._request else False)
         )
+        self._stages = ["title"]
+        site_title = await workflow.execute_activity(
+            activities.confirm_title_site,
+            TitleSiteInput(
+                run_id=run_id,
+                title=title,
+                origin=self._location.position,
+                position=chosen_pos,
+                capacity_mw=chosen_cap,
+                footprint_geojson=decision.footprint_geojson,
+                title_ids=decision.title_ids,
+                added_ids=decision.added_ids,
+                user_title_numbers=decision.user_title_numbers,
+            ),
+            **DEFAULT_OPTS,
+        )
+        self._boundary = site_title
+        all_artifacts.extend(site_title.artifacts)
         return ConfirmedSite(
             position=chosen_pos,
             capacity_mw=chosen_cap,
-            boundary=title,
+            boundary=site_title,
             footprint_geojson=decision.footprint_geojson,
             flexible_connection=is_flex,
         )

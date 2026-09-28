@@ -33,6 +33,7 @@ from bessible.models import (
     SynthesisInput,
     TitleInput,
     TitleOutput,
+    TitleSiteInput,
 )
 from bessible.ukpn.snapshot import SnapshotNotFoundError
 
@@ -96,17 +97,37 @@ async def propose_capacity(inp: CapacityInput) -> CapacityOutput:
 
 @activity.defn
 async def find_title_boundaries(inp: TitleInput) -> TitleOutput:
-    """Temporal activity for title boundary lookup stage."""
-    events.emit(inp.run_id, "title", "Querying HM Land Registry for title boundaries")
+    """Temporal activity for title boundary lookup stage. A failed polygon search raises, so Temporal retries it."""
+    events.emit(inp.run_id, "title", "Searching HM Land Registry INSPIRE polygons around the site")
     try:
         res = await stages.title.find_title_boundaries(inp)
     except ValidationError as exc:
         raise ApplicationError(str(exc), type="ValidationError", non_retryable=True) from exc
     else:
+        pin = res.pin_parcel
+        where = f"pin on polygon {pin.inspire_id} ({pin.area_m2:,.0f} m²)" if pin else "pin on no INSPIRE polygon"
+        numbers = f"; {len(res.title_numbers)} title number(s) from public data" if res.title_numbers else ""
+        events.emit(inp.run_id, "title", f"{len(res.candidates)} INSPIRE polygons found, {where}{numbers}")
+        return res
+
+
+@activity.defn
+async def confirm_title_site(inp: TitleSiteInput) -> TitleOutput:
+    """Temporal activity: the polygons the confirmed site covers, after the human placed the footprint."""
+    events.emit(inp.run_id, "title", "Measuring the BESS footprint against the INSPIRE polygons")
+    try:
+        res = await stages.title.confirm_title_site(inp)
+    except ValidationError as exc:
+        raise ApplicationError(str(exc), type="ValidationError", non_retryable=True) from exc
+    else:
+        shares = ", ".join(
+            f"{p.inspire_id} {p.footprint_overlap_pct:.0f}%" for p in res.site_parcels if p.footprint_overlap_pct
+        )
         events.emit(
             inp.run_id,
             "title",
-            f"Title boundary identified: {res.title_number} ({res.area_m2:,.0f} m²)",
+            f"Confirmed site: {len(res.site_parcels)} polygon(s), {res.area_m2 / 10_000:.2f} ha"
+            + (f" (footprint on {shares})" if shares else ""),
         )
         return res
 
@@ -237,6 +258,7 @@ ALL_ACTIVITIES = [
     resolve_location,
     propose_capacity,
     find_title_boundaries,
+    confirm_title_site,
     grid_connection,
     site_land,
     market_revenue,

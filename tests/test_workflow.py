@@ -232,3 +232,45 @@ async def test_retry_reruns_only_the_failed_stage(fake_gemini: FakeGemini, run_c
         final = await handle.result()  # the window closes with no further retry
         assert final.retries_left == 2
         assert final.report is not None
+
+
+@pytest.mark.anyio
+async def test_workflow_rejects_unknown_title_ids_then_confirms_clicked_polygon(
+    fake_gemini: FakeGemini, run_credentials: EncryptedCredentials
+):
+    """The decision's `title_ids` must be candidates; a valid click becomes the confirmed site boundary."""
+    async with (
+        await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter) as env,
+        Worker(env.client, task_queue=TASK_QUEUE, workflows=[AssessmentWorkflow], activities=ALL_ACTIVITIES),
+    ):
+        handle = await env.client.start_workflow(
+            AssessmentWorkflow.run,
+            AssessmentRequest(postcode="RH4 1AD", credentials=run_credentials),
+            id=f"test-wf-titles-{uuid.uuid4().hex[:8]}",
+            task_queue=TASK_QUEUE,
+        )
+        st = None
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            st = await handle.query(AssessmentWorkflow.status)
+            if st.status == "awaiting_confirmation":
+                break
+        assert st is not None
+        assert st.boundary is not None
+        assert st.boundary.candidates  # the saved planning.data search (conftest)
+        chosen = st.boundary.candidates[0].inspire_id
+
+        with pytest.raises(WorkflowUpdateFailedError):
+            await handle.execute_update(
+                AssessmentWorkflow.decide_site, SiteDecision(confirmed=True, capacity_mw=8.0, title_ids=["no-such-id"])
+            )
+        assert (await handle.query(AssessmentWorkflow.status)).status == "awaiting_confirmation"
+
+        await handle.execute_update(
+            AssessmentWorkflow.decide_site, SiteDecision(confirmed=True, capacity_mw=8.0, title_ids=[chosen])
+        )
+        result = await handle.result()
+        assert result.status == "completed"
+        assert result.site is not None
+        assert result.site.boundary.inspire_ids == [chosen]
+        assert any(a.claim.startswith("User confirmed the site as clicked polygons") for a in result.artifacts)

@@ -288,3 +288,30 @@ def test_only_checks_that_can_fail_can_hide_a_blocker():
     assert not hard.can_block("avoids_best_farmland", Limits())
     assert not hard.can_block("grid_headroom", Limits())
     assert hard.can_block("grid_headroom", Limits(min_headroom_mw=1))
+
+
+def test_landscape_claim_names_the_designation_and_flags_an_unmeasured_overlap():
+    aonb = designation("national_landscape", None).model_copy(update={"name": "Surrey Hills"})
+    check = hard.clear_of_protected_landscape(propose(designations=[aonb]))
+    assert check.outcome == "fail"
+    assert check.reason == (
+        "Surrey Hills National Landscape (AONB) covers up to 100% (overlap not measured, taken as all) "
+        "of the title (limit 50%)."
+    )
+    park = designation("national_park", 60.0).model_copy(update={"name": "South Downs National Park"})
+    assert hard.clear_of_protected_landscape(propose(designations=[park])).reason.startswith(
+        "South Downs National Park covers up to 60% of the title"
+    )
+
+
+def test_every_check_has_a_neutral_label_used_in_its_artifact():
+    from bessible.possibility.models import CHECK_LABELS
+    from bessible.possibility.pipeline import artifact_from
+
+    assert {c.__name__ for c in HARD_CHECKS} <= set(CHECK_LABELS)
+    park = designation("national_park", 60.0).model_copy(update={"name": "South Downs National Park"})
+    check = hard.clear_of_protected_landscape(propose(designations=[park]))
+    assert check.label == "Protected landscape"
+    art = artifact_from(check.model_copy(update={"source_urls": ["https://example.com/"]}), "run-1")
+    assert art is not None
+    assert art.claim.startswith("Blocker: Protected landscape — South Downs National Park covers")

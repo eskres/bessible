@@ -128,20 +128,73 @@ export interface CapacityOutput {
   artifacts?: Artifact[];
 }
 
+/** Mirrors `TitleSource` in `src/bessible/models.py`: where a title number came from. */
+export type TitleSource = 'listing' | 'ccod' | 'ocod' | 'user';
+
+/** Mirrors `TitleParcel`: one HM Land Registry INSPIRE index polygon (indicative extent; no title number of its own). */
+export interface TitleParcel {
+  inspire_id: string;
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+  area_m2: number;
+  source_url?: string | null; // the planning.data entity page
+  title_number?: string | null; // only when a named source links one
+  title_source?: TitleSource | null;
+  title_source_url?: string | null;
+  title_link?: 'polygon' | 'site' | null;
+  footprint_overlap_pct?: number | null; // share of the BESS footprint on this polygon, 0-100
+}
+
+/** Mirrors `TitleNumber`: a title number from a named source, never inferred. */
+export interface TitleNumber {
+  title_number: string;
+  source: TitleSource;
+  source_url?: string | null;
+  link: 'polygon' | 'site';
+  inspire_id?: string | null;
+  proprietor?: string | null;
+  tenure?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  evidence?: string | null;
+}
+
+/** Mirrors `TitleOutput`: the pin polygon and candidates before confirmation; the site's polygons after. */
+export interface TitleOutput {
+  title_number?: string | null;
+  boundary_geojson?: Record<string, unknown>;
+  area_m2: number;
+  pin_parcel?: TitleParcel | null;
+  candidates?: TitleParcel[];
+  site_parcels?: TitleParcel[];
+  inspire_ids?: string[];
+  title_numbers?: TitleNumber[];
+  search_radius_m?: number | null;
+  notes?: string[];
+  artifacts?: Artifact[];
+}
+
 export interface ConfirmedSite {
   position: [number, number] | PositionCoords; // [lng, lat] or { lat, lon }
   capacity_mw: number;
   reserved_acres?: number;
   footprint_geojson?: Record<string, unknown> | null;
-  boundary?: Record<string, unknown> | null;
+  boundary?: TitleOutput | null;
 }
 
+/** Mirrors `SiteDecision`. */
 export interface SiteDecision {
   confirmed: boolean;
   position?: [number, number] | PositionCoords;
   capacity_mw?: number;
   footprint_acres?: number;
   flexible_connection?: boolean;
+  footprint_geojson?: GeoJSON.Feature<GeoJSON.Polygon> | null;
+  /** INSPIRE ids of candidates the user clicked; omitted = the polygons under the footprint. */
+  title_ids?: string[] | null;
+  /** Polygons from `/inspire` outside the candidates; the backend fetches them again. */
+  added_ids?: string[];
+  /** Title numbers per INSPIRE id from the CLI / API (from the legal pack; not checked). The web UI does not send it. */
+  user_title_numbers?: Record<string, string>;
 }
 
 export type RunStatusType =
@@ -162,7 +215,7 @@ export interface RunStatus {
   message?: string;
   capacity?: CapacityOutput;
   position?: [number, number] | PositionCoords;
-  boundary?: Record<string, unknown> | null;
+  boundary?: TitleOutput | null;
 }
 
 /** Mirrors `DurationCase` in `src/bessible/models.py`. `irr` is a fraction; null when equity never pays back. */

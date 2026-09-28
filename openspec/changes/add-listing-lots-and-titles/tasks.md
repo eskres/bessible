@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Check the what3words API free allowance for convert-to-coordinates and its caching terms; write the answer in `design.md` (Open Questions); verify by one call with a test key on an invented what3words address
 - [ ] 1.2 Add `what3words_api_key` to `config.py` and `WHAT3WORDS_API_KEY=` to `.env.example`; the autouse test fixture unsets it; verify `check_env.py` reports it as optional
-- [ ] 1.3 Split the caches: live writes for pages and postcodes go to `out/cache/`; reads try `data/fixtures/` first, then `out/cache/`; verify a run on a new link leaves `git status` clean and a curated fixture still resolves with the network off
+- [~] 1.3 (partial: pages only. Live pages now write to `out/cache/pages/`, reads try `data/fixtures/pages/` first; postcodes and the move of existing untracked files are left) Split the caches: live writes for pages and postcodes go to `out/cache/`; reads try `data/fixtures/` first, then `out/cache/`; verify a run on a new link leaves `git status` clean and a curated fixture still resolves with the network off
 - [ ] 1.4 Script to promote a cached page into `data/fixtures/pages/`, trimmed to its blocks and text; verify it refuses to overwrite and prints the fixture path
 
 ## 2. Step 1: structured data (0 tokens)
@@ -22,15 +22,15 @@
 - [ ] 4.1 `api/what3words.py` wire models and a converter used only with a key; verify with `httpx.MockTransport` for success, bad address and quota errors
 - [ ] 4.2 Anchors per lot (portal polygon, what3words, listing point by best area match, postcode); verify the no-key case anchors one lot and lists the other as not placed
 - [ ] 4.3 `listing/titles.py`: one planning.data polygon search per listing, greedy growth to acreage (20 m adjacency, ±10% or ±2 acres, 60-polygon cap, no title in two groups), score; unit-test on synthetic square fields for matched, overshoot, no-acreage and two-lot cases
-- [ ] 4.4 `stages/title.py` returns `groups` and `candidates` instead of the placeholder square; `TitleOutput` keeps `title_number`, `boundary_geojson`, `area_m2` as the union; verify `test_stages.py` passes and a two-lot fixture gives two groups
+- [~] 4.4 (partial: the placeholder square is gone; the stage returns `pin_parcel`, `candidates` and `site_parcels` from one planning.data polygon search, with `title_number`, `boundary_geojson`, `area_m2` as the union. `groups` wait for lots, 4.3) `stages/title.py` returns `groups` and `candidates` instead of the placeholder square; `TitleOutput` keeps `title_number`, `boundary_geojson`, `area_m2` as the union; verify `test_stages.py` passes and a two-lot fixture gives two groups
 - [ ] 4.5 `resolve_from_link` runs the tiers and fills `LocationOutput.listing`; verify the existing single-property fixtures resolve to the same postcode and point
 
 ## 5. Step 4: human check
 
-- [ ] 5.1 `SiteDecision.title_ids`, validated against the candidates; the confirmed union becomes `ConfirmedSite.boundary` and an edit artifact; verify an unknown id is rejected and no ids keeps the proposal
-- [ ] 5.2 `collate` accepts a site polygon (the confirmed union) instead of the single title; verify areas and designations are measured against the union
-- [ ] 5.3 Web: `types.ts` for groups and candidates; the map draws candidates faintly and chosen titles per lot, click toggles, a per-lot acreage summary; fill `/inspire` with a bbox search; verify in the browser that clicking a title changes the matched acreage and the confirmed run uses it
-- [ ] 5.4 `uv run pytest`, `ruff`, `mypy`; `npm run build` and `npm run lint` in `web/`
+- [x] 5.1 `SiteDecision.title_ids`, validated against the candidates; the confirmed union becomes `ConfirmedSite.boundary` and an edit artifact; verify an unknown id is rejected and no ids keeps the proposal
+- [x] 5.2 `collate` accepts a site polygon (the confirmed union) instead of the single title; verify areas and designations are measured against the union
+- [~] 5.3 (partial: types, candidates drawn faintly, pin polygon outlined, site filled, click toggles, footprint share per polygon, `/inspire` bbox search and a "Load title polygons in view" button; the per-lot acreage summary waits for lots) Web: `types.ts` for groups and candidates; the map draws candidates faintly and chosen titles per lot, click toggles, a per-lot acreage summary; fill `/inspire` with a bbox search; verify in the browser that clicking a title changes the matched acreage and the confirmed run uses it
+- [x] 5.4 `uv run pytest`, `ruff`, `mypy`; `npm run build` and `npm run lint` in `web/`
 
 ## 6. Step 5: plan image on low confidence
 

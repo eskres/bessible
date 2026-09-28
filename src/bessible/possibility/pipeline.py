@@ -18,6 +18,12 @@ if TYPE_CHECKING:
     from .models import Check, PossibilityReport, Proposal
 
 OUTCOME_WORDS = {"pass": "OK", "warn": "Caveat", "fail": "Blocker", "unknown": "Unknown"}
+MAX_URL = 2083  # HttpUrl's limit; a query with a many-polygon site's WKT can pass it
+
+
+def _citable(url: str) -> str:
+    """The URL, or its endpoint without the query when the query (a long site WKT) makes it too long to store."""
+    return url if len(url) <= MAX_URL else url.split("?", 1)[0]
 
 
 def artifact_from(check: Check, run_id: str) -> Artifact | None:
@@ -26,8 +32,8 @@ def artifact_from(check: Check, run_id: str) -> Artifact | None:
     return Artifact(
         id=f"site_land-{check.name}-{run_id[:8]}",
         stage="site_land",
-        claim=f"{OUTCOME_WORDS[check.outcome]}: {check.reason}",
-        source_url=HttpUrl(check.source_urls[0]),
+        claim=f"{OUTCOME_WORDS[check.outcome]}: {check.label} — {check.reason}",
+        source_url=HttpUrl(_citable(check.source_urls[0])),
         confidence=check.confidence,
         model_used=check.produced_by,
     )

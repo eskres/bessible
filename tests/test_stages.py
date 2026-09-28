@@ -101,7 +101,9 @@ async def test_title_and_analysis_stages():
 
     cap = await propose_capacity(CapacityInput(run_id=run_id, request=req, location=loc))
     title = await find_title_boundaries(TitleInput(run_id=run_id, request=req, location=loc, capacity=cap))
-    assert title.title_number == "BK123456"
+    assert title.title_number is None  # the free INSPIRE index has no title numbers
+    assert title.candidates  # the saved planning.data search (conftest)
+    assert all(a.model_used != "dummy" for a in title.artifacts)
 
     boundary_file = Path(f"out/{run_id}/boundary.geojson")
     assert boundary_file.exists()

@@ -88,10 +88,26 @@ async def _pin_request(url: str) -> tuple[httpx.URL, str]:
     return httpx.URL(url).copy_with(host=ip), parsed.hostname
 
 
+def _page_key(url: str) -> str:
+    return hashlib.sha1(url.encode("utf-8"), usedforsecurity=False).hexdigest()
+
+
 def page_cache_path(url: str) -> Path:
-    """Return the fixture cache file path for a URL."""
-    norm = hashlib.sha1(url.encode("utf-8"), usedforsecurity=False).hexdigest()
-    return settings.data_dir / "fixtures" / "pages" / f"{norm}.json"
+    """Return the committed fixture path for a URL (curated demo pages, added on purpose)."""
+    return settings.data_dir / "fixtures" / "pages" / f"{_page_key(url)}.json"
+
+
+def live_cache_path(url: str) -> Path:
+    """Return the live cache path for a URL: gitignored, where every fetched page is written."""
+    return settings.cache_dir / "pages" / f"{_page_key(url)}.json"
+
+
+def cached_page_text(url: str) -> str | None:
+    """The page's text from the committed fixtures, else the live cache; None when it was never fetched."""
+    for path in (page_cache_path(url), live_cache_path(url)):
+        if path.exists():
+            return str(json.loads(path.read_text(encoding="utf-8")).get("text", ""))
+    return None
 
 
 def html_to_text(raw_html: str) -> str:
@@ -140,16 +156,15 @@ async def _execute_fetch(url: str, client: httpx.AsyncClient | None) -> httpx.Re
 async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) -> str:
     """Fetch property page text with URL-keyed disk caching.
 
-    If cached under data/fixtures/pages/<sha1>.json, the cached text is returned
-    without making any network requests.
+    A committed fixture (data/fixtures/pages/<sha1>.json), else the live cache (out/cache/pages/<sha1>.json), is
+    returned without making any network requests. Fetched pages are written to the live cache only.
 
     Raises:
         PageUnavailable: if the page cannot be reached, times out, or returns a 4xx/5xx status.
     """
-    cache = page_cache_path(url)
-    if cache.exists():
-        data = json.loads(cache.read_text(encoding="utf-8"))
-        return str(data.get("text", ""))
+    cached = cached_page_text(url)
+    if cached is not None:
+        return cached
 
     try:
         resp = await _execute_fetch(url, client)
@@ -170,6 +185,7 @@ async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) 
         else resp.text
     )
 
+    cache = live_cache_path(url)
     cache.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "url": url,

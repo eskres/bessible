@@ -607,7 +607,13 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                       : outcome === 'Blocker'
                         ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40'
                         : 'bg-muted text-muted-foreground border-border';
-                const name = a.id.replace(/^site_land-/, '').replace(/-[^-]*$/, '').replace(/_/g, ' ');
+                // "Blocker: Protected landscape — reason": the label says what was checked. Recorded runs from
+                // before labels have none, so fall back to the check name in the artifact id.
+                const body = rest.join(': ');
+                const cut = body.indexOf(' — ');
+                const name =
+                  cut > 0 ? body.slice(0, cut) : a.id.replace(/^site_land-/, '').replace(/-[^-]*$/, '').replace(/_/g, ' ');
+                const reason = cut > 0 ? body.slice(cut + 3) : body;
                 return (
                   <div
                     key={a.id}
@@ -619,7 +625,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                     </span>
                     <div>
                       <div className="font-semibold capitalize text-foreground">{name}</div>
-                      <div className="text-muted-foreground mt-0.5">{rest.join(': ')}</div>
+                      <div className="text-muted-foreground mt-0.5">{reason}</div>
                     </div>
                   </div>
                 );

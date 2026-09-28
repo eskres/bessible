@@ -403,11 +403,21 @@ async def _local_plans(f: _Fetcher) -> list[planning_data.EntityBase]:
 # ------------------------------------------- collate -------------------------------------------- #
 
 
-async def collate(coords: Coordinates, *, client: httpx.AsyncClient | None = None) -> LocationData:  # ruff: ignore[too-many-locals]
-    """Everything the data sources know about a coordinate that bears on building a battery there."""
+async def collate(  # ruff: ignore[too-many-locals]
+    coords: Coordinates,
+    *,
+    client: httpx.AsyncClient | None = None,
+    site_polygon: dict[str, Any] | None = None,
+    site_ids: list[str] | None = None,
+) -> LocationData:
+    """Everything the data sources know about a coordinate that bears on building a battery there.
+
+    `site_polygon` (GeoJSON; the confirmed union of INSPIRE polygons, `site_ids`) replaces the one title under the
+    point as the boundary every figure is measured against.
+    """
     if client is None:
         async with httpx.AsyncClient(timeout=60, headers={"User-Agent": "bessible"}, follow_redirects=True) as own:
-            return await collate(coords, client=own)
+            return await collate(coords, client=own, site_polygon=site_polygon, site_ids=site_ids)
     f = _Fetcher(client)
     lat, lon = coords.lat, coords.lon
 
@@ -432,7 +442,8 @@ async def collate(coords: Coordinates, *, client: httpx.AsyncClient | None = Non
             "Nominatim: address", nominatim.ReverseRequest(lat=lat, lon=lon), nominatim.ReverseResponse.model_validate
         ),
     )
-    found = transform.title_boundary(titles, coords) if titles else None
+    confirmed = transform.site_boundary(site_polygon, coords, site_ids or []) if site_polygon else None
+    found = confirmed or (transform.title_boundary(titles, coords) if titles else None)
     title, boundary = found or (None, None)
     site = Site(coords, boundary)
     postcode = postcodes.result[0] if postcodes and postcodes.result else None
