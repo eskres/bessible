@@ -1,0 +1,122 @@
+{
+ "help": "https://api.neso.energy/api/3/action/help_show?name=datastore_search_sql",
+ "success": true,
+ "result": {
+  "records": [
+   {
+    "MW Connected": "0.0",
+    "Project Number": "PRO-004324",
+    "Plant Type": "Energy Storage System",
+    "Project Name": "West Weybridge",
+    "Agreement Type": "Direct Connection",
+    "Project Status": "Consents Approved",
+    "Connection Site": "West Weybridge 275kV Substation",
+    "Customer Name": "EL (WEST WEYBRIDGE) LIMITED",
+    "Gate": null,
+    "MW Effective From": "2027-10-31",
+    "Cumulative Total Capacity (MW)": "57.0",
+    "MW Increase / Decrease": "57.0",
+    "Project ID": "a0l8e000001Hy5YAAS",
+    "HOST TO": "NGET",
+    "Stage": null
+   },
+   {
+    "MW Connected": "0.0",
+    "Project Number": "PRO-000552-2",
+    "Plant Type": "Energy Storage System;PV Array (Photo Voltaic/solar)",
+    "Project Name": "West Weybridge (Tertiary)",
+    "Agreement Type": "Direct Connection",
+    "Project Status": "Scoping",
+    "Connection Site": "West Weybridge 275kV Substation",
+    "Customer Name": "EL (WEST WEYBRIDGE) LIMITED",
+    "Gate": null,
+    "MW Effective From": "2027-10-31",
+    "Cumulative Total Capacity (MW)": "57.0",
+    "MW Increase / Decrease": "7.1",
+    "Project ID": "a0l4L0000005ipoQAA",
+    "HOST TO": "NGET",
+    "Stage": "2"
+   },
+   {
+    "MW Connected": "0.0",
+    "Project Number": "PRO-000552-1",
+    "Plant Type": "Energy Storage System;PV Array (Photo Voltaic/solar)",
+    "Project Name": "West Weybridge (Tertiary)",
+    "Agreement Type": "Direct Connection",
+    "Project Status": "Scoping",
+    "Connection Site": "West Weybridge 275kV Substation",
+    "Customer Name": "EL (WEST WEYBRIDGE) LIMITED",
+    "Gate": null,
+    "MW Effective From": "2025-10-31",
+    "Cumulative Total Capacity (MW)": "49.9",
+    "MW Increase / Decrease": "49.9",
+    "Project ID": "a0l4L0000005ipoQAA",
+    "HOST TO": "NGET",
+    "Stage": "1"
+   }
+  ],
+  "fields": [
+   {
+    "type": "text",
+    "id": "Project Name"
+   },
+   {
+    "type": "text",
+    "id": "Customer Name"
+   },
+   {
+    "type": "text",
+    "id": "Connection Site"
+   },
+   {
+    "type": "numeric",
+    "id": "Stage"
+   },
+   {
+    "type": "numeric",
+    "id": "MW Connected"
+   },
+   {
+    "type": "numeric",
+    "id": "MW Increase / Decrease"
+   },
+   {
+    "type": "numeric",
+    "id": "Cumulative Total Capacity (MW)"
+   },
+   {
+    "type": "date",
+    "id": "MW Effective From"
+   },
+   {
+    "type": "text",
+    "id": "Project Status"
+   },
+   {
+    "type": "text",
+    "id": "Agreement Type"
+   },
+   {
+    "type": "text",
+    "id": "HOST TO"
+   },
+   {
+    "type": "text",
+    "id": "Plant Type"
+   },
+   {
+    "type": "text",
+    "id": "Project ID"
+   },
+   {
+    "type": "text",
+    "id": "Project Number"
+   },
+   {
+    "type": "numeric",
+    "id": "Gate"
+   }
+  ],
+  "sql": "SELECT \"Project Name\", \"Customer Name\", \"Connection Site\", \"Stage\", \"MW Connected\", \"MW Increase / Decrease\", \"Cumulative Total Capacity (MW)\", \"MW Effective From\", \"Project Status\", \"Agreement Type\", \"HOST TO\", \"Plant Type\", \"Project ID\", \"Project Number\", \"Gate\" FROM \"17becbab-e3e8-473f-b303-3806f43a6a10\" WHERE (\"Connection Site\" ILIKE '%West Weybridge%') ORDER BY \"Cumulative Total Capacity (MW)\" DESC LIMIT 200"
+ }
+}
