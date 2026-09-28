@@ -35,7 +35,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** fetch against the API with the bearer token attached (skipped for public demo routes). */
+/** fetch against the API with the bearer token attached (skipped for public demo and free-data routes). */
 async function apiFetch(path: string, init: RequestInit = {}, opts: { auth?: boolean } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (opts.auth !== false) {
@@ -171,7 +171,7 @@ export async function checkCapacity(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ position, flexible }),
-  });
+  }, { auth: false });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -194,7 +194,7 @@ export async function getInspirePolygons(
   bbox: [number, number, number, number]
 ): Promise<GeoJSON.FeatureCollection | null> {
   const [minLng, minLat, maxLng, maxLat] = bbox;
-  const res = await apiFetch(`/inspire?bbox=${minLng},${minLat},${maxLng},${maxLat}`);
+  const res = await apiFetch(`/inspire?bbox=${minLng},${minLat},${maxLng},${maxLat}`, {}, { auth: false });
   if (!res.ok) {
     return null;
   }
@@ -349,7 +349,7 @@ export async function testKey(googleKey?: string): Promise<KeyTestResult> {
 
 // LocationData for a coordinate: title boundary, substations with headroom, nearby projects, overhead lines.
 export async function getSiteData(lat: number, lon: number): Promise<SiteData | null> {
-  const res = await apiFetch(`/site-data?lat=${lat}&lon=${lon}`);
+  const res = await apiFetch(`/site-data?lat=${lat}&lon=${lon}`, {}, { auth: false });
   if (!res.ok) {
     return null;
   }

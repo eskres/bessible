@@ -5,14 +5,13 @@ from __future__ import annotations
 import logging
 import math
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from bessible.api import capacity, demo, events, me, runs
-from bessible.auth import current_user
 from bessible.config import settings
 from bessible.keystore import KeyStoreError
 
@@ -37,7 +36,7 @@ app.add_middleware(
 # Include route modules
 app.include_router(runs.router)
 app.include_router(demo.router)
-app.include_router(capacity.router, dependencies=[Depends(current_user)])
+app.include_router(capacity.router)  # free public data: open to the keyless demo
 app.include_router(events.router)
 app.include_router(me.router)
 
@@ -78,7 +77,7 @@ INSPIRE_MAX_SPAN_M = 3000  # a bigger box would page through thousands of town p
 INSPIRE_MAX_FEATURES = 1500
 
 
-@app.get("/inspire", tags=["data"], dependencies=[Depends(current_user)])
+@app.get("/inspire", tags=["data"])  # free public data: open to the keyless demo
 async def get_inspire_parcels(bbox: str) -> Response:
     """HM Land Registry INSPIRE index polygons in a box (`min_lon,min_lat,max_lon,max_lat`), from planning.data.
 
@@ -115,9 +114,10 @@ async def get_inspire_parcels(bbox: str) -> Response:
 
 
 _SITE_DATA_CACHE: dict[tuple[float, float], dict[str, object]] = {}
+SITE_DATA_CACHE_MAX = 256  # the route is public, so the cache is bounded
 
 
-@app.get("/site-data", tags=["data"], dependencies=[Depends(current_user)])
+@app.get("/site-data", tags=["data"])  # free public data: open to the keyless demo
 async def get_site_data(lat: float, lon: float) -> Response:
     """Everything `location.collate` knows about a coordinate (the LocationData object), for the map layers."""
     from bessible.location import Coordinates, collate  # ruff: ignore[import-outside-top-level]
@@ -125,6 +125,8 @@ async def get_site_data(lat: float, lon: float) -> Response:
     key = (round(lat, 5), round(lon, 5))
     if key not in _SITE_DATA_CACHE:
         location = await collate(Coordinates(lat=lat, lon=lon))
+        if len(_SITE_DATA_CACHE) >= SITE_DATA_CACHE_MAX:
+            del _SITE_DATA_CACHE[next(iter(_SITE_DATA_CACHE))]  # oldest first
         _SITE_DATA_CACHE[key] = location.model_dump(mode="json")
     return JSONResponse(content=_SITE_DATA_CACHE[key])
 

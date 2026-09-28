@@ -7,10 +7,11 @@ import RunView from './RunView';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Film, LogIn, LogOut, PlayCircle, Sparkles } from 'lucide-react';
-import { startDemoRun } from '../../lib/api';
+import { checkCapacity, startDemoRun } from '../../lib/api';
 import { generateMockInspireParcels } from '../../lib/footprint';
 import { geocodePostcode } from '../../lib/geocode';
 import { CapacityChecker, DEFAULT_CENTER, useSiteRun } from '../../lib/useSiteRun';
+import { useSiteData } from '../../lib/useSiteData';
 import {
   COMPLETION_EVENTS,
   DEFAULT_PRESET,
@@ -22,8 +23,9 @@ import {
   simulateScreening,
 } from '../../lib/demo/simulation';
 
-const checkDemoCapacity: CapacityChecker = async (pos, flexible, { origin, current }) =>
-  current ? simulateCapacityMove(origin, pos, current, flexible) : null;
+// The capacity check reads free public data, so a moved pin gets the real answer; offline, it is simulated
+const checkDemoCapacity: CapacityChecker = (pos, flexible, { origin, current }) =>
+  checkCapacity(pos, flexible).catch(() => (current ? simulateCapacityMove(origin, pos, current, flexible) : null));
 
 export type DemoPreview = 'confirm' | 'report';
 
@@ -38,10 +40,12 @@ interface DemoWorkspaceProps {
 
 /**
  * Keyless demo: the preset sites replay runs recorded by the API, and every other postcode is simulated in the
- * browser. Nothing here calls a model or needs a session.
+ * browser. Map layers, title polygons and capacity re-checks read free public data. Nothing here calls a model or
+ * needs a session.
  */
 export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: DemoWorkspaceProps) {
   const run = useSiteRun(checkDemoCapacity);
+  const { siteData, siteDataLoading } = useSiteData(run.currentPosition);
   const [postcode, setPostcode] = useState(DEFAULT_PRESET.postcode);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -182,6 +186,8 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
       <main className="flex-1 max-w-[1800px] w-full mx-auto p-4 sm:p-6 space-y-6">
         <RunView
           run={run}
+          siteData={siteData}
+          siteDataLoading={siteDataLoading}
           onConfirm={handleConfirm}
           onReset={restart}
           locationBar={
@@ -220,7 +226,7 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
                 <PlayCircle className="w-4 h-4 shrink-0" />
                 <span>
                   This is a <strong>demo</strong>: the example sites replay recorded runs, and other postcodes are simulated
-                  in your browser. Nothing here calls a model or uses a key.
+                  in your browser. The map reads free public data; nothing here calls a model or uses your key.
                 </span>
               </div>
             </>

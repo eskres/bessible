@@ -30,8 +30,6 @@ PROTECTED = [
     ("PUT", "/me/key"),
     ("DELETE", "/me/key"),
     ("POST", "/me/key/test"),
-    ("POST", "/capacity/check"),
-    ("GET", "/site-data?lat=51&lon=0"),
 ]
 
 
@@ -60,6 +58,20 @@ def test_no_token_is_401(method: str, path: str) -> None:
     res = _client(_good).request(method, path)
     assert res.status_code == 401
     assert res.headers["www-authenticate"] == "Bearer"
+
+
+# Free public data the keyless demo calls: no token needed (an invalid request is a 422, not a 401)
+PUBLIC = [
+    ("POST", "/capacity/check"),
+    ("GET", "/site-data"),
+    ("GET", "/inspire?bbox=bad"),
+]
+
+
+@pytest.mark.parametrize(("method", "path"), PUBLIC)
+def test_public_data_needs_no_token(method: str, path: str) -> None:
+    res = _client(_good).request(method, path)
+    assert res.status_code == 422
 
 
 @pytest.mark.parametrize("header", ["", "Bearer", "Basic abc", "Token abc", "abc"])
