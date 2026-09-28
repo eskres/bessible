@@ -43,6 +43,7 @@ import {
   ChevronDown,
   MapPin,
   OctagonX,
+  Info,
 } from 'lucide-react';
 
 /** Evidence categories shown in the report, each a set of pipeline stages, styled like its `style` stage. */
@@ -116,6 +117,7 @@ interface ReportViewProps {
 export default function ReportView({ result, onReset, siteMap, onRetry, retrying }: ReportViewProps) {
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [financeInfoOpen, setFinanceInfoOpen] = useState(false);
   const { capacity, site, grid_connection, land_planning, financial, artifacts = [] } = result;
   const recommendedH = financial?.recommended_h ?? null;
   const [selectedDurationH, setSelectedDurationH] = useState<number>(recommendedH ?? 4);
@@ -150,6 +152,18 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
   const discountRate = financial?.discount_rate_pct;
   const projectLife = financial?.project_life_years ?? 25;
   const gbpM = (gbp: number, digits = 2) => `£${(gbp / 1000000).toFixed(digits)}M`;
+  const equity = activeCase?.equity_gbp ?? null;
+  const debtShare = financial?.debt_share_pct;
+  const financeInfoButton = (
+    <button
+      type="button"
+      onClick={() => setFinanceInfoOpen(true)}
+      aria-label="How the financial figures are calculated"
+      className="text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <Info className="w-3.5 h-3.5" />
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -235,7 +249,9 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
         {/* Capex Card */}
         <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Initial Capex</span>
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Initial Capex {financeInfoButton}
+            </span>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground">
               {activeH}H Case
             </span>
@@ -252,12 +268,14 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
           </div>
         </div>
 
-        {/* 25-Year NPV Card */}
+        {/* Equity NPV Card (total over the project life) */}
         <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Project Net Present Value</span>
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Equity NPV {financeInfoButton}
+            </span>
             <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
-              {discountRate != null ? `NPV @ ${discountRate}%` : 'Equity NPV'}
+              {discountRate != null ? `@ ${discountRate}%` : 'Discounted'}
             </Badge>
           </div>
           <div className="mt-3">
@@ -271,7 +289,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
               {activeCase ? gbpM(activeCase.npv_gbp) : '—'}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {projectLife}-year operational lifecycle
+              {projectLife}-year total{equity != null ? ` · on ${gbpM(equity)} equity` : ''}
             </p>
           </div>
         </div>
@@ -279,9 +297,11 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
         {/* Internal Rate of Return (IRR) */}
         <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Project IRR</span>
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Equity IRR {financeInfoButton}
+            </span>
             <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
-              Equity
+              {debtShare != null ? `${debtShare}% debt` : 'Levered'}
             </Badge>
           </div>
           <div className="mt-3">
@@ -740,6 +760,76 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
           </DialogContent>
         </Dialog>
       )}
+
+      {/* How the financial cards are calculated */}
+      <Dialog open={financeInfoOpen} onOpenChange={setFinanceInfoOpen}>
+        <DialogContent className="sm:max-w-lg border-border bg-card rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center gap-2">
+              <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              How the financial figures work · {activeH}h case
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              A plain-code model (no language model) computes every figure from the documented assumptions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-xs leading-relaxed">
+            <section>
+              <h4 className="font-semibold text-foreground">
+                Initial Capex{activeCase ? ` · ${gbpM(activeCase.capex_gbp)}` : ''}
+              </h4>
+              <p className="text-muted-foreground">
+                The full cost to build the system: battery (£ per MWh of storage), power conversion and balance of
+                plant (£ per MW), the cable to the substation, and the queue fee (OTCF) when it applies. Each cost is
+                the midpoint of its benchmark range.
+              </p>
+            </section>
+            <section>
+              <h4 className="font-semibold text-foreground">
+                Equity invested{equity != null ? ` · ${gbpM(equity)}` : ''}
+              </h4>
+              <p className="text-muted-foreground">
+                {debtShare != null
+                  ? `A loan pays ${debtShare}% of capex${
+                      financial?.interest_rate_pct != null ? ` at ${financial.interest_rate_pct}% interest` : ''
+                    }${financial?.loan_term_years != null ? `, repaid over ${financial.loan_term_years} years` : ''}. `
+                  : 'A loan pays most of the capex. '}
+                The investor pays the rest of the capex
+                {financial?.arrangement_fee_pct != null
+                  ? `, plus a ${financial.arrangement_fee_pct}% arrangement fee on the loan`
+                  : ', plus the loan arrangement fee'}
+                . The NPV and IRR measure the return on this money, not on the full capex.
+              </p>
+            </section>
+            <section>
+              <h4 className="font-semibold text-foreground">
+                Equity NPV{activeCase ? ` · ${gbpM(activeCase.npv_gbp)}` : ''}
+              </h4>
+              <p className="text-muted-foreground">
+                The total over all {projectLife} years, not a yearly figure. Each year&apos;s cash flow is revenue
+                after curtailment, minus operating cost, minus the loan repayment while the loan runs. The model
+                discounts each year{discountRate != null ? ` at ${discountRate}%` : ''} and subtracts the equity
+                invested. Zero means the equity earns exactly the discount rate; a positive NPV is value on top of
+                that return.
+              </p>
+            </section>
+            <section>
+              <h4 className="font-semibold text-foreground">
+                Equity IRR{activeIrr != null ? ` · ${activeIrr.toFixed(1)}%` : ''}
+              </h4>
+              <p className="text-muted-foreground">
+                The yearly return on the equity invested: the discount rate at which the NPV is zero. Compare it
+                with the {discountRate != null ? `${discountRate}% ` : ''}discount rate. &quot;No payback&quot; means
+                the cash flows never return the equity.
+              </p>
+            </section>
+            <section className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-amber-950 dark:text-amber-200">
+              <strong>Not in the model:</strong> battery degradation, augmentation, revenue change over time, tax and
+              decommissioning. Treat the figures as optimistic screening estimates.
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Artifact Modal Dialog */}
       <Dialog open={selectedArtifact !== null} onOpenChange={(open) => !open && setSelectedArtifact(null)}>

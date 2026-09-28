@@ -229,6 +229,7 @@ export interface FinancialCase {
   over_budget?: boolean;
   curtailment_pct?: number | null;
   payback_years?: number | null;
+  equity_gbp?: number | null;
 }
 
 /** Mirrors `FinancialOutput` in `src/bessible/models.py`. */
@@ -238,6 +239,10 @@ export interface FinancialOutput {
   rationale?: string | null;
   discount_rate_pct?: number | null;
   project_life_years?: number | null;
+  debt_share_pct?: number | null;
+  interest_rate_pct?: number | null;
+  arrangement_fee_pct?: number | null;
+  loan_term_years?: number | null;
   artifacts?: Artifact[];
 }
 

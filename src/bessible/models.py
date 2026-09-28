@@ -461,6 +461,7 @@ class DurationCase(BaseModel):
     low: CaseBound | None = None
     high: CaseBound | None = None
     payback_years: float | None = None
+    equity_gbp: float | None = None  # year-0 equity: capex not covered by debt, plus the arrangement fee
 
 
 REQUIRED_DURATION_HOURS = (2, 4, 8)
@@ -474,6 +475,10 @@ class FinancialOutput(BaseModel):
     rationale: str | None = None
     discount_rate_pct: float | None = None
     project_life_years: int | None = None
+    debt_share_pct: float | None = None
+    interest_rate_pct: float | None = None
+    arrangement_fee_pct: float | None = None
+    loan_term_years: int | None = None
     artifacts: list[Artifact] = Field(default_factory=list)
 
     @model_validator(mode="after")

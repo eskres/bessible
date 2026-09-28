@@ -94,6 +94,7 @@ def returns(  # ruff: ignore[too-many-arguments,too-many-positional-arguments]
         capex_gbp=round(cost.capex_gbp, 2),
         npv_gbp=round(npv(f.discount_rate, flows), 2),
         irr=irr(flows),
+        equity_gbp=round(-flows[0], 2),
         over_budget=over_budget,
         curtailment_pct=round(curtail_pct, 2),
     )

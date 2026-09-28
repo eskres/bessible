@@ -154,5 +154,9 @@ async def financial_model(inp: FinancialInput) -> FinancialOutput:
         rationale=rationale,
         discount_rate_pct=disc_rate,
         project_life_years=int(a.number("project_life_years")),
+        debt_share_pct=debt_share,
+        interest_rate_pct=int_rate,
+        arrangement_fee_pct=arr_fee,
+        loan_term_years=loan_term,
         artifacts=[art_cost, art_curtailment, art_returns],
     )
