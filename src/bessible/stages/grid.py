@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+from datetime import UTC, datetime
 
 from pydantic import HttpUrl
 from temporalio import activity
 
 from bessible.models import Artifact, DataGap, GridOutput, NodeInput
+from bessible.queue_dates import queue_timescale
 from bessible.ukpn.snapshot import GSP_DATASET_ID, GSP_DATASET_URL, get_snapshot
 from bessible.ukpn.timescales import gsp_queue, timescales
 
@@ -55,6 +57,12 @@ async def grid_connection(inp: NodeInput) -> GridOutput:
 
     queue = gsp_queue(gsp, snapshot) if gsp else None
     times = timescales(gsp, snapshot) if gsp else None
+    # The snapshot has no dates: fall back to the contracted dates of projects queued at the GSP.
+    queued = (
+        await queue_timescale(gsp, datetime.now(UTC).date(), f"grid-timescale-{inp.run_id[:8]}")
+        if gsp and times is None
+        else None
+    )
 
     artifacts: list[Artifact] = []
 
@@ -107,6 +115,9 @@ async def grid_connection(inp: NodeInput) -> GridOutput:
                 model_used=MODEL_USED,
             )
         )
+    elif queued is not None:
+        median_months, timescale_artifact = queued
+        artifacts.append(timescale_artifact)
     else:
         median_months = None
         artifacts.append(
@@ -126,7 +137,10 @@ async def grid_connection(inp: NodeInput) -> GridOutput:
     where = sub_name or "the serving substation"
     gaps = [
         DataGap(stage="grid", what=what, reason=f"No grid supply point data for {where} in the UKPN snapshot.")
-        for what, missing in (("gate2_queue_position", queue is None), ("connection_timescale", times is None))
+        for what, missing in (
+            ("gate2_queue_position", queue is None),
+            ("connection_timescale", times is None and queued is None),
+        )
         if missing
     ]
     return GridOutput(

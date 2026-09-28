@@ -271,6 +271,28 @@ class GspProjectStatusApiRecord(ApiResponse):
     has_not_undergone_gated_process: float | None = None
 
 
+class AppendixGRecord(ApiResponse):
+    """Row of ``ukpn-appendix-g`` ("Appendix G Detail"): one project in the transmission queue of its GSP.
+
+    Distribution-connected generation and storage whose connection depends on the GSP's Appendix G (the DNO's
+    transmission capacity allowance), with its Gate 2 connections-reform outcome. Monthly, CC BY 4.0.
+    """
+
+    gsp: str | None = None  # upper case, e.g. "WEST WEYBRIDGE", "BARKING C (EPN)", "HACKNEY 132"
+    unique_nodd_id: str | None = None  # e.g. "WWYB-SPN-1257"
+    site_name: str | None = None  # free text, often with a postcode
+    connection_status: str | None = None  # "Connected" | "Gate 2 - Protected 26-27 able to connect enduring" | ...
+    technology: str | None = None  # e.g. "Electricity Storage", "Solar PV", "Unabated Gas"
+    developer_capacity_mw: float | None = None
+    # text upstream: "Connected", "dd/mm/yyyy", or an Excel day serial such as "46296" (= 2026-10-01); mostly null
+    date_of_connection: str | None = None
+    date_of_non_firm_accelerated_connection: str | None = None  # same formats
+    contract_status: str | None = None  # e.g. "Included in a signed NESO Gated contract", "Awaiting NESO Gated offer"
+    type_of_contract: str | None = None  # "App G" | ...
+    previously_offered_new_gsp: str | None = None  # "Y" | "N"
+    position: int | None = None  # running number across all GSPs; connected rows are numbered too
+
+
 # -------------------- 4. Not from the API (helpers, registries, transforms) --------------------- #
 
 
@@ -302,4 +324,5 @@ DATASETS: dict[str, DatasetSpec[Any]] = {
     "gsp_project_status": DatasetSpec(
         BASE_URL, "ukpn-gsp-project-status", None, RecordsResponse[GspProjectStatusApiRecord]
     ),
+    "appendix_g": DatasetSpec(BASE_URL, "ukpn-appendix-g", None, RecordsResponse[AppendixGRecord]),
 }

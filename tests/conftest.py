@@ -48,6 +48,16 @@ def offline_routes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
+def offline_queue_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The grid stage finds no queue dates instead of calling UKPN and NESO; test_queue_dates uses a mock client."""
+
+    async def none(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("bessible.stages.grid.queue_timescale", none)
+
+
+@pytest.fixture(autouse=True)  # ruff: ignore[pytest-fixture-autouse] - every stage test must stay offline
 def offline_market(monkeypatch: pytest.MonkeyPatch) -> None:
     """The market stage serves the committed fixtures instead of calling Elexon and NESO."""
     monkeypatch.setattr(
