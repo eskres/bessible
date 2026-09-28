@@ -144,6 +144,16 @@ export default function RunView({
         </div>
       )}
 
+      {runStatus?.status === 'failed' && (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs text-foreground space-y-1">
+            <p className="font-bold text-sm text-destructive">Assessment Stopped</p>
+            <p>{runStatus.message || 'A stage failed. Try again, or enter the site postcode instead.'}</p>
+          </div>
+        </div>
+      )}
+
       {runStatus?.status === 'rejected' && (
         <div className="p-3 bg-muted/60 border border-border rounded-lg text-xs text-foreground flex items-center gap-2">
           <Compass className="w-4 h-4 text-muted-foreground shrink-0" />

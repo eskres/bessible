@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 from temporalio import activity
-from temporalio.client import WorkflowUpdateFailedError
+from temporalio.client import WorkflowFailureError, WorkflowUpdateFailedError
 from temporalio.contrib.pydantic import pydantic_data_converter
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -20,6 +21,8 @@ from bessible.models import (
     AssessmentRequest,
     AssessmentResult,
     DataGap,
+    LocationInput,
+    LocationOutput,
     MarketOutput,
     NodeInput,
     SiteDecision,
@@ -165,6 +168,36 @@ async def test_workflow_early_rejection_stops_before_title(
         assert result.status == "rejected"
         st = await handle.query(AssessmentWorkflow.status)
         assert st.boundary is None  # the title stage never ran
+
+
+@pytest.mark.anyio
+async def test_failed_stage_reports_failed_status_with_reason(run_credentials: EncryptedCredentials):
+    """A run whose location stage fails reports "failed" and the reason, not "running" at its last stage."""
+
+    @activity.defn(name="resolve_location")
+    async def no_location(_inp: LocationInput) -> LocationOutput:
+        msg = "Found address 'Land at Welland' but no valid UK postcode or coordinates."
+        raise ApplicationError(msg, type="LocationNotFound", non_retryable=True)
+
+    acts = [no_location if a.__name__ == "resolve_location" else a for a in ALL_ACTIVITIES]
+    async with (
+        await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter) as env,
+        Worker(env.client, task_queue=TASK_QUEUE, workflows=[AssessmentWorkflow], activities=acts),
+    ):
+        handle = await env.client.start_workflow(
+            AssessmentWorkflow.run,
+            AssessmentRequest(link="https://example.com/listing", credentials=run_credentials),
+            id=f"test-wf-{uuid.uuid4().hex[:8]}",
+            task_queue=TASK_QUEUE,
+        )
+        with pytest.raises(WorkflowFailureError):
+            await handle.result()
+
+        st = await handle.query(AssessmentWorkflow.status)
+        assert st.status == "failed"
+        assert st.stages == []
+        assert st.message is not None
+        assert "no valid UK postcode" in st.message
 
 
 @pytest.mark.anyio

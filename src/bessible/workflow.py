@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError, ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from bessible import activities
@@ -96,11 +97,12 @@ class AssessmentWorkflow:
         self._result: AssessmentResult | None = None
         self._retry: list[Stage] | None = None
         self._retries_left = 0
+        self._error: str | None = None  # why the run failed, for the `status` query
 
     @workflow.query
     def status(self) -> RunStatus:
         """Query current status and active stages."""
-        msg = None
+        msg = self._error
         if self._capacity and not self._capacity.viable:
             msg = self._capacity.message
         return RunStatus(
@@ -405,7 +407,15 @@ class AssessmentWorkflow:
     async def run(self, request: AssessmentRequest) -> AssessmentResult:
         """Execute end-to-end BESS site assessment workflow."""
         run_id = workflow.info().workflow_id
-        result = await self._assess(run_id, request)
+        try:
+            result = await self._assess(run_id, request)
+        except ActivityError as exc:
+            # Without this, the `status` query of a failed run replays to its last stage and reports "running".
+            self._status = "failed"
+            self._stages = []
+            cause = exc.cause
+            self._error = cause.message if isinstance(cause, ApplicationError) else str(cause or exc)
+            raise
         postcode = self._location.postcode if self._location else None
         return result.model_copy(update={"run_id": run_id, "postcode": postcode})
 
