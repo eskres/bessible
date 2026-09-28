@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from bessible.location.fetch import (
     PageUnavailable,
@@ -147,3 +148,50 @@ async def test_fetch_page_text_rejects_redirect_to_internal_address(monkeypatch,
 
     with pytest.raises(UnsafeUrl):
         await fetch_page_text(test_url, client=mock_client)
+
+
+def _blocked_client(url: str, tavily_body: dict[str, object]) -> AsyncMock:
+    """A portal that answers 403 to a direct GET, and a Tavily extract that answers `tavily_body`."""
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get.return_value = httpx.Response(status_code=403, request=httpx.Request("GET", url))
+    client.post.return_value = httpx.Response(
+        status_code=200, json=tavily_body, request=httpx.Request("POST", "https://api.tavily.com/extract")
+    )
+    return client
+
+
+@pytest.mark.anyio
+async def test_fetch_page_text_falls_back_to_tavily_on_403(monkeypatch, tmp_path):
+    monkeypatch.setattr("bessible.config.settings.data_dir", tmp_path)
+    monkeypatch.setattr("bessible.config.settings.tavily_api_key", SecretStr("tvly-test"))
+    test_url = "https://example.com/property/blocked"
+    body = {"results": [{"url": test_url, "raw_content": "Land at Milton Park, OX14 4TE"}], "failed_results": []}
+    client = _blocked_client(test_url, body)
+
+    text = await fetch_page_text(test_url, client=client)
+
+    assert text == "Land at Milton Park, OX14 4TE"
+    assert client.post.call_args.kwargs["json"]["urls"] == [test_url]
+    assert live_cache_path(test_url).exists()  # the next run reads the cache, not Tavily
+
+
+@pytest.mark.anyio
+async def test_fetch_page_text_reports_both_failures(monkeypatch, tmp_path):
+    monkeypatch.setattr("bessible.config.settings.data_dir", tmp_path)
+    monkeypatch.setattr("bessible.config.settings.tavily_api_key", SecretStr("tvly-test"))
+    test_url = "https://example.com/property/gone"
+    client = _blocked_client(test_url, {"results": [], "failed_results": [{"url": test_url, "error": "Timed out"}]})
+
+    with pytest.raises(PageUnavailable, match=r"HTTP 403.*fallback: Tavily could not fetch the page: Timed out"):
+        await fetch_page_text(test_url, client=client)
+
+
+@pytest.mark.anyio
+async def test_fetch_page_text_never_sends_unsafe_urls_to_tavily(monkeypatch, tmp_path):
+    monkeypatch.setattr("bessible.config.settings.data_dir", tmp_path)
+    monkeypatch.setattr("bessible.config.settings.tavily_api_key", SecretStr("tvly-test"))
+    client = AsyncMock(spec=httpx.AsyncClient)
+
+    with pytest.raises(UnsafeUrl):
+        await fetch_page_text("http://169.254.169.254/latest/meta-data/", client=client)
+    client.post.assert_not_called()

@@ -16,12 +16,14 @@ from urllib.parse import urlparse
 
 import httpx
 
+from bessible.api import tavily
 from bessible.config import settings
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 FETCH_TIMEOUT_S = 15.0
+TAVILY_TIMEOUT_S = 30.0  # Tavily's own page timeout is 20 s, see `_fetch_with_tavily`
 MAX_REDIRECTS = 5
 ALLOWED_SCHEMES = {"http", "https"}
 DEFAULT_USER_AGENT = "Bessible/1.0 (+https://bessible.example.com; property site assessment bot)"
@@ -153,19 +155,8 @@ async def _execute_fetch(url: str, client: httpx.AsyncClient | None) -> httpx.Re
             await active.aclose()
 
 
-async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) -> str:
-    """Fetch property page text with URL-keyed disk caching.
-
-    A committed fixture (data/fixtures/pages/<sha1>.json), else the live cache (out/cache/pages/<sha1>.json), is
-    returned without making any network requests. Fetched pages are written to the live cache only.
-
-    Raises:
-        PageUnavailable: if the page cannot be reached, times out, or returns a 4xx/5xx status.
-    """
-    cached = cached_page_text(url)
-    if cached is not None:
-        return cached
-
+async def _fetch_direct(url: str, client: httpx.AsyncClient | None) -> str:
+    """GET the page ourselves and return its text. Raises `PageUnavailable` (or `UnsafeUrl`)."""
     try:
         resp = await _execute_fetch(url, client)
     except UnsafeUrl:
@@ -179,11 +170,67 @@ async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) 
         raise PageUnavailable(msg)
 
     content_type = resp.headers.get("content-type", "")
-    text = (
-        html_to_text(resp.text)
-        if ("html" in content_type or "<html" in resp.text[:500].lower())
-        else resp.text
-    )
+    return html_to_text(resp.text) if ("html" in content_type or "<html" in resp.text[:500].lower()) else resp.text
+
+
+async def _fetch_with_tavily(url: str, client: httpx.AsyncClient | None) -> str:
+    """The page text through Tavily's Extract API (1 credit), for portals that block server IPs.
+
+    Savills answers 403 to data-centre addresses, so a deployed server cannot read a listing a laptop can.
+    Raises `PageUnavailable` without an operator `TAVILY_API_KEY`, or when Tavily cannot fetch the page either.
+    """
+    key = settings.tavily_api_key
+    if key is None:
+        msg = "no TAVILY_API_KEY for the fallback"
+        raise PageUnavailable(msg)
+    req = tavily.ExtractRequest(urls=[url], extract_depth="basic", format="text", timeout=20)
+    owns_client = client is None
+    active = client if client is not None else httpx.AsyncClient(timeout=TAVILY_TIMEOUT_S)
+    try:
+        resp = await active.post(req.URL, json=req.params(), headers=tavily.auth_headers(key.get_secret_value()))
+    except Exception as exc:
+        msg = f"Tavily extract failed: {exc}"
+        raise PageUnavailable(msg) from exc
+    finally:
+        if owns_client:
+            await active.aclose()
+    if resp.status_code != HTTPStatus.OK:
+        msg = f"Tavily extract answered HTTP {resp.status_code}"
+        raise PageUnavailable(msg)
+    body = tavily.ExtractResponse.model_validate(resp.json())
+    text = next((r.raw_content for r in body.results if r.raw_content.strip()), None)
+    if text is None:
+        why = body.failed_results[0].error if body.failed_results else "no page text"
+        msg = f"Tavily could not fetch the page: {why}"
+        raise PageUnavailable(msg)
+    return text
+
+
+async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) -> str:
+    """Fetch property page text with URL-keyed disk caching.
+
+    A committed fixture (data/fixtures/pages/<sha1>.json), else the live cache (out/cache/pages/<sha1>.json), is
+    returned without making any network requests. Else the page is fetched directly, and when that fails (e.g. a
+    portal's 403 to a server IP) through Tavily. Fetched pages are written to the live cache only.
+
+    Raises:
+        PageUnavailable: if neither a direct fetch nor Tavily can read the page.
+        UnsafeUrl: if the URL points at a non-public address (never retried through Tavily).
+    """
+    cached = cached_page_text(url)
+    if cached is not None:
+        return cached
+
+    try:
+        text = await _fetch_direct(url, client)
+    except UnsafeUrl:
+        raise
+    except PageUnavailable as direct:
+        try:
+            text = await _fetch_with_tavily(url, client)
+        except PageUnavailable as fallback:
+            msg = f"{direct} (fallback: {fallback})"
+            raise PageUnavailable(msg) from direct
 
     cache = live_cache_path(url)
     cache.parent.mkdir(parents=True, exist_ok=True)
