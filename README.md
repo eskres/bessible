@@ -382,7 +382,7 @@ async def synthesise(inp: SynthesisInput) -> ReportOutput: ...
 
 ## Security & Privacy
 
-- **Bring Your Own Key (BYOK):** Each user enters their own Google Gemini API key via the web UI Key Panel. Keys are stored encrypted with AES-GCM (`KEY_ENCRYPTION_SECRET`) in `out/keys.db`.
+- **Bring Your Own Key (BYOK):** Each user enters their own Google Gemini API key via the web UI Key Panel. Keys are stored encrypted with AES-GCM (`KEY_ENCRYPTION_SECRET`) in `out/keys.db`. A Tavily key is optional: when saved, runs use it for local news search and blocked listing pages instead of the server's `TAVILY_API_KEY`.
 - **Run Isolation:** Encrypted user keys are decrypted strictly in-memory inside Temporal activities for the duration of a run; keys are never logged or stored in workflow history.
 - **SSRF Defense:** Property link resolution enforces public IP validation and DNS pinning, rejecting attempts to access loopback, link-local, or private IP addresses.
 - **Prompt Injection Defense:** External page content scraped from listing URLs or news articles is sanitized to strip prompt-injection patterns before insertion into LLM prompts.

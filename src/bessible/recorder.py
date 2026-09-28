@@ -30,13 +30,14 @@ logger = logging.getLogger(__name__)
 # Patterns that indicate secret or sensitive credential material
 SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Google API Key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("Tavily API Key", re.compile(r"tvly-[0-9A-Za-z\-_]{16,}")),
     ("Generic API Key", re.compile(r"(?:sk|ak|as)-[0-9a-zA-Z]{20,}")),
     (
         "JWT / ID Token",
         re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"),
     ),
     ("Private Key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
-    ("Encrypted Key Material", re.compile(r'"google_ct"\s*:\s*"[^"]+"')),
+    ("Encrypted Key Material", re.compile(r'"(?:google|tavily)_ct"\s*:\s*"[^"]+"')),
     ("Key Storage Field", re.compile(r'"google_key"\s*:\s*"[^"]+"')),
     ("Master Secret Field", re.compile(r'"master_secret"\s*:\s*"[^"]+"')),
 ]

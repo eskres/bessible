@@ -173,21 +173,22 @@ async def _fetch_direct(url: str, client: httpx.AsyncClient | None) -> str:
     return html_to_text(resp.text) if ("html" in content_type or "<html" in resp.text[:500].lower()) else resp.text
 
 
-async def _fetch_with_tavily(url: str, client: httpx.AsyncClient | None) -> str:
+async def _fetch_with_tavily(url: str, client: httpx.AsyncClient | None, tavily_key: str | None = None) -> str:
     """The page text through Tavily's Extract API (1 credit), for portals that block server IPs.
 
     Savills answers 403 to data-centre addresses, so a deployed server cannot read a listing a laptop can.
-    Raises `PageUnavailable` without an operator `TAVILY_API_KEY`, or when Tavily cannot fetch the page either.
+    Uses the run owner's `tavily_key`, else the operator's `TAVILY_API_KEY`. Raises `PageUnavailable` without
+    either key, or when Tavily cannot fetch the page either.
     """
-    key = settings.tavily_api_key
+    key = tavily_key or (settings.tavily_api_key.get_secret_value() if settings.tavily_api_key else None)
     if key is None:
-        msg = "no TAVILY_API_KEY for the fallback"
+        msg = "no Tavily key for the fallback"
         raise PageUnavailable(msg)
     req = tavily.ExtractRequest(urls=[url], extract_depth="basic", format="text", timeout=20)
     owns_client = client is None
     active = client if client is not None else httpx.AsyncClient(timeout=TAVILY_TIMEOUT_S)
     try:
-        resp = await active.post(req.URL, json=req.params(), headers=tavily.auth_headers(key.get_secret_value()))
+        resp = await active.post(req.URL, json=req.params(), headers=tavily.auth_headers(key))
     except Exception as exc:
         msg = f"Tavily extract failed: {exc}"
         raise PageUnavailable(msg) from exc
@@ -206,12 +207,12 @@ async def _fetch_with_tavily(url: str, client: httpx.AsyncClient | None) -> str:
     return text
 
 
-async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) -> str:
+async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None, tavily_key: str | None = None) -> str:
     """Fetch property page text with URL-keyed disk caching.
 
     A committed fixture (data/fixtures/pages/<sha1>.json), else the live cache (out/cache/pages/<sha1>.json), is
     returned without making any network requests. Else the page is fetched directly, and when that fails (e.g. a
-    portal's 403 to a server IP) through Tavily. Fetched pages are written to the live cache only.
+    portal's 403 to a server IP) through Tavily, on `tavily_key` or the server's key. Fetched pages are written to the live cache only.
 
     Raises:
         PageUnavailable: if neither a direct fetch nor Tavily can read the page.
@@ -227,7 +228,7 @@ async def fetch_page_text(url: str, *, client: httpx.AsyncClient | None = None) 
         raise
     except PageUnavailable as direct:
         try:
-            text = await _fetch_with_tavily(url, client)
+            text = await _fetch_with_tavily(url, client, tavily_key)
         except PageUnavailable as fallback:
             msg = f"{direct} (fallback: {fallback})"
             raise PageUnavailable(msg) from direct

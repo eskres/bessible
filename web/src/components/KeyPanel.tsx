@@ -1,53 +1,94 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, KeyRound, Loader2, ShieldAlert, XCircle } from 'lucide-react';
-import { deleteKey, KeyStatus, saveKey, testKey } from '../lib/api';
+import {
+  deleteKey,
+  deleteTavilyKey,
+  getTavilyKeyStatus,
+  KeyStatus,
+  KeyTestResult,
+  saveKey,
+  saveTavilyKey,
+  testKey,
+  testTavilyKey,
+} from '../lib/api';
 
 interface KeyPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The saved key state, or null while it is still loading. */
+  /** The saved Google key state, or null while it is still loading. */
   status: KeyStatus | null;
   onStatusChange: (status: KeyStatus) => void;
 }
 
 type Feedback = { kind: 'ok' | 'error'; text: string } | null;
 
-export default function KeyPanel({ open, onOpenChange, status, onStatusChange }: KeyPanelProps) {
+const NO_KEY: KeyStatus = { configured: false, last4: null, updated_at: null };
+
+/**
+ * One provider's key: its own status, input, Test / Save / Delete buttons and feedback.
+ * The dialog unmounts its content on close, so a typed key never outlives the panel.
+ */
+interface KeySectionProps {
+  provider: string;
+  label: string;
+  hint: React.ReactNode;
+  placeholder: string;
+  /** Shown when no key is saved. */
+  emptyText: string;
+  status: KeyStatus | null;
+  onStatusChange: (status: KeyStatus) => void;
+  test: (key?: string) => Promise<KeyTestResult>;
+  save: (key: string) => Promise<KeyStatus>;
+  remove: () => Promise<void>;
+}
+
+function testMessage(provider: string, res: KeyTestResult): string {
+  if (res.ok) return res.message || `${provider} accepted the key.`;
+  if (res.message) return res.message;
+  switch (res.error) {
+    case 'rate_limited':
+      return `${provider} accepted the key, but it is out of quota.`;
+    case 'unreachable':
+      return `${provider} could not be reached. Try again.`;
+    case 'provider_error':
+      return `${provider} returned an error. Try again.`;
+    default:
+      return `${provider} rejected the key.`;
+  }
+}
+
+function KeySection({
+  provider,
+  label,
+  hint,
+  placeholder,
+  emptyText,
+  status,
+  onStatusChange,
+  test,
+  save,
+  remove,
+}: KeySectionProps) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState<'test' | 'save' | 'delete' | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // Never keep a typed key around once the panel closes.
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      setDraft('');
-      setFeedback(null);
-      setSaveSuccess(false);
-    }
-    onOpenChange(next);
-  };
-
   const typed = draft.trim();
-  const canTest = !busy && (typed.length > 0 || !!status?.configured);
 
   const run = async (kind: 'test' | 'save' | 'delete', fn: () => Promise<void>) => {
     setBusy(kind);
     setFeedback(null);
-    setSaveSuccess(false);
     try {
       await fn();
     } catch (err) {
@@ -59,136 +100,175 @@ export default function KeyPanel({ open, onOpenChange, status, onStatusChange }:
 
   const handleTest = () =>
     run('test', async () => {
-      const res = await testKey(typed || undefined);
-      setFeedback(
-        res.ok
-          ? { kind: 'ok', text: res.message || 'Gemini accepted the key.' }
-          : { kind: 'error', text: res.message || 'Gemini rejected the key.' }
-      );
+      const res = await test(typed || undefined);
+      setFeedback({ kind: res.ok ? 'ok' : 'error', text: testMessage(provider, res) });
     });
 
+  // Save tests the key first, so a saved key is always one the provider accepted.
   const handleSave = () =>
     run('save', async () => {
-      // 1. Test key against Gemini first
-      const testRes = await testKey(typed);
-      if (!testRes.ok) {
-        throw new Error(testRes.message || 'Google rejected this key. Please check AI Studio.');
-      }
-      // 2. Save if verified
-      const saved = await saveKey(typed);
-      onStatusChange(saved);
+      const res = await test(typed);
+      if (!res.ok) throw new Error(testMessage(provider, res));
+      onStatusChange(await save(typed));
       setDraft('');
-      setSaveSuccess(true);
-      setFeedback({ kind: 'ok', text: 'Key verified with Gemini and saved successfully.' });
+      setFeedback({ kind: 'ok', text: `Key verified with ${provider} and saved.` });
     });
 
   const handleDelete = () =>
     run('delete', async () => {
-      await deleteKey();
-      onStatusChange({ configured: false, last4: null, updated_at: null });
+      await remove();
+      onStatusChange(NO_KEY);
       setFeedback({ kind: 'ok', text: 'Key deleted.' });
     });
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-xs text-muted-foreground">
+          {status === null ? (
+            'Checking…'
+          ) : status.configured ? (
+            <span className="flex items-center gap-1.5 text-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Saved <span className="font-mono">••••{status.last4}</span>
+            </span>
+          ) : (
+            emptyText
+          )}
+        </span>
+      </div>
+      <p className="text-[11px] text-muted-foreground">{hint}</p>
+
+      <Input
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={status?.configured ? 'Paste a new key to replace it' : placeholder}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className="font-mono text-xs h-9"
+      />
+
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={!!busy || !status?.configured}
+          className="text-destructive hover:text-destructive"
+        >
+          {busy === 'delete' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Delete
+        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTest}
+            disabled={!!busy || (typed.length === 0 && !status?.configured)}
+          >
+            {busy === 'test' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Test
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSave}
+            disabled={!!busy || typed.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white"
+          >
+            {busy === 'save' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {busy === 'save' ? 'Testing & saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+
+      {feedback && (
+        <div
+          role="status"
+          className={`flex items-start gap-1.5 text-xs ${
+            feedback.kind === 'ok' ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
+          }`}
+        >
+          {feedback.kind === 'ok' ? (
+            <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          ) : (
+            <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          )}
+          <span>{feedback.text}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function KeyPanel({ open, onOpenChange, status, onStatusChange }: KeyPanelProps) {
+  // The optional Tavily key: loaded each time the panel opens.
+  const [tavilyStatus, setTavilyStatus] = useState<KeyStatus | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let stale = false;
+    getTavilyKeyStatus()
+      .then((s) => !stale && setTavilyStatus(s))
+      .catch(() => !stale && setTavilyStatus(NO_KEY));
+    return () => {
+      stale = true;
+    };
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="w-4 h-4 text-emerald-600" />
-            Google AI key
+            API keys
           </DialogTitle>
           <DialogDescription>
-            Bessible runs Gemini with your own key, so the team&apos;s quota is never used. This is the only key it needs.
+            Bessible runs on your own keys, so the team&apos;s quota is never used.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
-            {status === null ? (
-              <span className="text-muted-foreground">Checking saved key…</span>
-            ) : status.configured ? (
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Key saved: <span className="font-mono">••••{status.last4}</span>
-              </span>
-            ) : (
-              <span className="text-muted-foreground">No key saved yet.</span>
-            )}
-          </div>
-
-          <Input
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={status?.configured ? 'Paste a new key to replace it' : 'Paste your Google AI (Gemini) key'}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="font-mono text-xs h-10"
+        <div className="space-y-4">
+          <KeySection
+            provider="Gemini"
+            label="Google AI key"
+            hint="Required. Every run reasons with Gemini on this key."
+            placeholder="Paste your Google AI (Gemini) key"
+            emptyText="No key saved"
+            status={status}
+            onStatusChange={onStatusChange}
+            test={testKey}
+            save={saveKey}
+            remove={deleteKey}
           />
 
-          {feedback && (
-            <div
-              role="status"
-              className={`flex items-start gap-1.5 text-xs ${
-                feedback.kind === 'ok' ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
-              }`}
-            >
-              {feedback.kind === 'ok' ? (
-                <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              ) : (
-                <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              )}
-              <span>{feedback.text}</span>
-            </div>
-          )}
+          <div className="border-t border-border" />
+
+          <KeySection
+            provider="Tavily"
+            label="Tavily key (optional)"
+            hint="Local news search and blocked listing pages go through Tavily. Without a key, runs use the server's."
+            placeholder="tvly-…"
+            emptyText="Using the server key"
+            status={tavilyStatus}
+            onStatusChange={setTavilyStatus}
+            test={testTavilyKey}
+            save={saveTavilyKey}
+            remove={deleteTavilyKey}
+          />
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <ShieldAlert className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
             <span>
-              The key is stored encrypted on the server and is never shown again. Use a restricted or throwaway key.
+              Keys are stored encrypted on the server and are never shown again. Use restricted or throwaway keys.
             </span>
           </p>
         </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={handleDelete}
-            disabled={!!busy || !status?.configured}
-          >
-            {busy === 'delete' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Delete key
-          </Button>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={!canTest}>
-              {busy === 'test' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Test key
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSave}
-              disabled={!!busy || typed.length === 0}
-              className={saveSuccess ? "bg-emerald-600 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white"}
-            >
-              {busy === 'save' ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  Testing & saving…
-                </>
-              ) : saveSuccess ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-white" />
-                  Saved
-                </>
-              ) : (
-                'Save key'
-              )}
-            </Button>
-          </div>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

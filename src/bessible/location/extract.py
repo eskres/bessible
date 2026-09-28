@@ -170,6 +170,7 @@ async def resolve_from_link(
     *,
     model: Model | str | None = None,
     client: httpx.AsyncClient | None = None,
+    tavily_key: str | None = None,
 ) -> LocationOutput:
     """Fetch property page, extract location with Gemini, validate postcode, and return LocationOutput.
 
@@ -177,7 +178,7 @@ async def resolve_from_link(
         LocationNotFound: if no address is found, outside UK, or postcode cannot be validated.
     """
     try:
-        text = await fetch_page_text(url, client=client)
+        text = await fetch_page_text(url, client=client, tavily_key=tavily_key)
     except PageUnavailable as exc:
         msg = f"Could not fetch property page from '{url}': {exc}. Please specify a postcode using --postcode."
         raise LocationNotFound(msg) from exc

@@ -14,7 +14,9 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 
-async def local_sentiment(inp: NodeInput, *, model: Model | None = None) -> SentimentOutput:
+async def local_sentiment(
+    inp: NodeInput, *, model: Model | None = None, tavily_key: str | None = None
+) -> SentimentOutput:
     """Assess local community sentiment from local news and planning coverage.
 
     Runs beside `site_land`, so it looks up only the site's place names and council (`location.locality`),
@@ -26,7 +28,7 @@ async def local_sentiment(inp: NodeInput, *, model: Model | None = None) -> Sent
     council = f" ({where.planning_authority})" if where.planning_authority else ""
     events.emit(inp.run_id, "sentiment", f"Searching local news and planning coverage for {place}{council}")
 
-    research = await research_local_news(location, model=model)
+    research = await research_local_news(location, model=model, tavily_key=tavily_key)
 
     events.emit(inp.run_id, "sentiment", f"Kept {len(research.sources)} sources; analyzing planning sentiment")
     return await process_sentiment(inp.run_id, research, model=model)

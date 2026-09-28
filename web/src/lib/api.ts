@@ -276,7 +276,7 @@ export function subscribeEvents(
   return () => controller.abort();
 }
 
-// --- Per-user Google (Gemini) key: the only credential. The API never returns a saved key, only its last 4 characters.
+// --- Per-user Google (Gemini) key: the one required credential. The API never returns a saved key, only its last 4 characters.
 
 export interface KeyStatus {
   configured: boolean;
@@ -287,6 +287,8 @@ export interface KeyStatus {
 export interface KeyTestResult {
   ok: boolean;
   message?: string;
+  /** Short code from the API: invalid_key, rate_limited, unreachable or provider_error. */
+  error?: string | null;
 }
 
 // FastAPI `detail` may be a string, an object with a `message`, or a validation-error list: only show readable text.
@@ -345,7 +347,48 @@ export async function testKey(googleKey?: string): Promise<KeyTestResult> {
   });
   if (res.status === 401 || res.status === 404) return throwApiError(res, 'Not signed in or no key saved');
   const data = await res.json().catch(() => ({}));
-  if (res.ok) return { ok: data.ok ?? true, message: data.message };
+  if (res.ok) return { ok: data.ok ?? true, message: data.message, error: data.error };
+  return { ok: false, message: detailMessage(data, 'Key test failed') };
+}
+
+// --- Per-user Tavily key: optional. Runs use it for news search and blocked listing pages instead of the server's key.
+
+const NO_KEY: KeyStatus = { configured: false, last4: null, updated_at: null };
+
+export async function getTavilyKeyStatus(): Promise<KeyStatus> {
+  const res = await apiFetch('/me/tavily-key');
+  if (res.status === 404) return NO_KEY;
+  if (!res.ok) return throwApiError(res, 'Failed to load Tavily key status');
+  const data = await res.json();
+  return { configured: true, last4: data.last4 ?? null, updated_at: data.updated_at ?? null };
+}
+
+export async function saveTavilyKey(tavilyKey: string): Promise<KeyStatus> {
+  const res = await apiFetch('/me/tavily-key', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tavily_api_key: tavilyKey }),
+  });
+  if (!res.ok) return throwApiError(res, 'Failed to save Tavily key');
+  const data = await res.json();
+  return { configured: true, last4: data.last4 ?? null, updated_at: data.updated_at ?? null };
+}
+
+export async function deleteTavilyKey(): Promise<void> {
+  const res = await apiFetch('/me/tavily-key', { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) return throwApiError(res, 'Failed to delete Tavily key');
+}
+
+/** Pings Tavily with the typed key, or the stored key when none is given. */
+export async function testTavilyKey(tavilyKey?: string): Promise<KeyTestResult> {
+  const res = await apiFetch('/me/tavily-key/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tavilyKey ? { tavily_api_key: tavilyKey } : {}),
+  });
+  if (res.status === 401 || res.status === 404) return throwApiError(res, 'Not signed in or no key saved');
+  const data = await res.json().catch(() => ({}));
+  if (res.ok) return { ok: data.ok ?? true, message: data.message, error: data.error };
   return { ok: false, message: detailMessage(data, 'Key test failed') };
 }
 

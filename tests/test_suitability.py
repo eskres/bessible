@@ -453,6 +453,22 @@ async def test_failed_news_search_is_a_retryable_gap_not_no_coverage(monkeypatch
 
 
 @pytest.mark.anyio
+async def test_the_run_owners_tavily_key_wins_over_the_servers(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-server"))
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.headers["authorization"])
+        return httpx.Response(200, json=_tavily_body())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    research = await research_local_news(DORKING, client=client, tavily_key="tvly-user")
+    assert research.status == "searched"
+    assert sent
+    assert all(h == "Bearer tvly-user" for h in sent)
+
+
+@pytest.mark.anyio
 async def test_live_search_keeps_uk_pages_and_verbatim_paragraphs_then_caches(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "tavily_api_key", SecretStr("tvly-test"))
     calls: list[str] = []
