@@ -24,6 +24,8 @@ from bessible import events
 from bessible.activities import CONFIRM_TITLE_MSG
 from bessible.config import settings
 from bessible.demo_rerun import changes_site, rerun
+from bessible.finance import load_finance_assumptions
+from bessible.finance.sources import finance_sources
 from bessible.models import (
     AssessmentRequest,
     AssessmentResult,
@@ -391,6 +393,10 @@ async def start_demo_run(req: StartDemoRequest | None = None) -> dict[str, str]:
     run_id = f"demo-{uuid.uuid4().hex[:12]}"
     result = AssessmentResult.model_validate_json(result_file.read_text(encoding="utf-8"))
     result = result.model_copy(update={"run_id": run_id, "postcode": result.postcode or req_data.postcode})
+    if result.financial and not result.financial.sources:  # recorded before the report listed its data sources
+        voltage_kv = result.capacity.connection_voltage_kv if result.capacity else None
+        sources = finance_sources(load_finance_assumptions(), voltage_kv)
+        result.financial = result.financial.model_copy(update={"sources": sources})
     session = DemoReplaySession(
         run_id=run_id,
         slug=slug,

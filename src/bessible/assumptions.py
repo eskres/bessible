@@ -38,6 +38,8 @@ class Assumption(BaseModel):
     status: Literal["agreed", "placeholder"] = "agreed"
     used: bool = True
     source_url: str | None = None
+    publisher: str | None = None
+    published: str | None = None  # the source's publication date; `date` is when the team checked it
     quote: str | None = None  # verbatim line or table reference from the source
     derivation: str | None = None  # the arithmetic, if any
     note: str | None = None
