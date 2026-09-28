@@ -51,18 +51,17 @@ GRID_SOURCES = ("UKPN", "NGED", "SSEN", "SP Energy Networks")
 # ------------------------------------------- the land ------------------------------------------- #
 
 
-SHOWN_IDS = 3  # a site can join dozens of polygons: name a few, count the rest
-
-
 def title_found(proposal: Proposal) -> Check:
     result = partial(_check, "title_found", proposal, TITLE_SOURCE)
     title = proposal.location.title
     if title is None:
         return result("unknown", "No registered title boundary at this point.")
     ids = title.inspire_id.split("+")  # a confirmed site joins its polygons' ids
-    shown = ", ".join(ids[:SHOWN_IDS]) + (f" and {len(ids) - SHOWN_IDS} more" if len(ids) > SHOWN_IDS else "")
-    what = f"INSPIRE polygon {shown} covers" if len(ids) == 1 else f"{len(ids)} INSPIRE polygons ({shown}) cover"
-    return result("pass", f"{what} {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    if len(ids) == 1:
+        return result("pass", f"INSPIRE polygon {ids[0]} covers {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    # A site can join dozens of polygons: count them in the reason, list them in the details
+    check = result("pass", f"{len(ids)} INSPIRE polygons cover {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    return check.model_copy(update={"details": [f"INSPIRE polygon {i}" for i in ids]})
 
 
 def enough_area(proposal: Proposal) -> Check:

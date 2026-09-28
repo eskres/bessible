@@ -763,6 +763,13 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                 <p className="text-sm font-semibold text-foreground mt-1 bg-muted/30 p-3 rounded-xl border border-border leading-relaxed">
                   {selectedArtifact.claim}
                 </p>
+                {!!selectedArtifact.details?.length && (
+                  <ul className="mt-2 max-h-48 overflow-y-auto list-disc pl-5 space-y-0.5 font-mono text-[11px] text-foreground">
+                    {selectedArtifact.details.map((d) => (
+                      <li key={d}>{d}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 py-2 border-y border-border">

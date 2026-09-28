@@ -104,6 +104,7 @@ class Artifact(BaseModel):
     id: str
     stage: Stage
     claim: str
+    details: list[str] = Field(default_factory=list)  # items behind the claim, listed when it is opened
     source_url: HttpUrl | None = None
     file_path: str | None = None
     image_path: str | None = None

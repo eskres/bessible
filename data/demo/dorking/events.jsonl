@@ -1,24 +1,24 @@
-{"id": 1, "offset_s": 0.0, "t": "2026-09-28T19:34:04.819510+00:00", "stage": "location", "msg": "Resolving site location and postcode"}
-{"id": 2, "offset_s": 0.02, "t": "2026-09-28T19:34:04.841293+00:00", "stage": "location", "msg": "Location resolved: RH4 1AD (51.2329, -0.3302)"}
-{"id": 3, "offset_s": 0.03, "t": "2026-09-28T19:34:04.848391+00:00", "stage": "capacity", "msg": "Evaluating grid capacity and primary substations"}
-{"id": 4, "offset_s": 0.43, "t": "2026-09-28T19:34:05.250096+00:00", "stage": "capacity", "msg": "Grid capacity evaluated: 8 MW at Dorking Town 11kV (viable)"}
-{"id": 5, "offset_s": 0.44, "t": "2026-09-28T19:34:05.263607+00:00", "stage": "title", "msg": "Searching HM Land Registry INSPIRE polygons around the site"}
-{"id": 6, "offset_s": 0.66, "t": "2026-09-28T19:34:05.481213+00:00", "stage": "title", "msg": "600 INSPIRE polygons found, pin on polygon 55889853 (209 m\u00b2)"}
-{"id": 7, "offset_s": 0.97, "t": "2026-09-28T19:34:05.787969+00:00", "stage": "title", "msg": "Measuring the BESS footprint against the INSPIRE polygons"}
-{"id": 8, "offset_s": 1.03, "t": "2026-09-28T19:34:05.854070+00:00", "stage": "title", "msg": "Confirmed site: 20 polygon(s), 1.77 ha (footprint on 34562003 16%, 34564191 10%, 34570811 5%, 34578338 5%, 59812380 4%, 34568557 4%, 55889853 3%, 34565055 2%, 34572102 2%, 34571907 1%, 34571398 1%, 34566763 1%, 34571210 1%, 34572727 1%, 34573208 1%, 34570738 1%, 34572316 1%, 34572843 1%, 34564614 1%, 34565100 1%)"}
-{"id": 9, "offset_s": 1.05, "t": "2026-09-28T19:34:05.871616+00:00", "stage": "grid", "msg": "Assessing grid connection queue and timescales"}
-{"id": 10, "offset_s": 1.06, "t": "2026-09-28T19:34:05.882242+00:00", "stage": "grid", "msg": "Grid connection assessment complete (Gate 2 position: 1)"}
-{"id": 11, "offset_s": 1.06, "t": "2026-09-28T19:34:05.882866+00:00", "stage": "site_land", "msg": "Analyzing environmental constraints and land classification"}
-{"id": 12, "offset_s": 1.07, "t": "2026-09-28T19:34:05.893269+00:00", "stage": "market", "msg": "Modeling wholesale, capacity market, and ancillary service revenues"}
-{"id": 13, "offset_s": 1.07, "t": "2026-09-28T19:34:05.894255+00:00", "stage": "market", "msg": "Market revenue projected: \u00a3116,512/MW/yr"}
-{"id": 14, "offset_s": 1.08, "t": "2026-09-28T19:34:05.895423+00:00", "stage": "sentiment", "msg": "Analyzing local community sentiment and planning records"}
-{"id": 15, "offset_s": 1.26, "t": "2026-09-28T19:34:06.079853+00:00", "stage": "sentiment", "msg": "Searching local news and planning coverage for Dorking (Mole Valley)"}
-{"id": 16, "offset_s": 1.29, "t": "2026-09-28T19:34:06.107464+00:00", "stage": "sentiment", "msg": "Kept 4 sources; analyzing planning sentiment"}
-{"id": 17, "offset_s": 1.29, "t": "2026-09-28T19:34:06.114416+00:00", "stage": "sentiment", "msg": "Local sentiment assessed (opposition index: 0.82)"}
-{"id": 18, "offset_s": 3.39, "t": "2026-09-28T19:34:08.213564+00:00", "stage": "site_land", "msg": "Site land constraints assessed: 2 constraints noted"}
-{"id": 19, "offset_s": 3.4, "t": "2026-09-28T19:34:08.223879+00:00", "stage": "financial", "msg": "Simulating 25-year financial models across 2h, 4h, and 8h durations"}
-{"id": 20, "offset_s": 3.41, "t": "2026-09-28T19:34:08.226442+00:00", "stage": "financial", "msg": "Financial returns modeled (recommended: 4h duration)"}
-{"id": 21, "offset_s": 3.41, "t": "2026-09-28T19:34:08.227452+00:00", "stage": "planning", "msg": "Evaluating consenting routes and planning risk profile"}
-{"id": 22, "offset_s": 8.63, "t": "2026-09-28T19:34:13.450317+00:00", "stage": "planning", "msg": "Consenting route determined: Local planning authority consent (Town and Country Planning Act 1990) - Mole Valley LPA"}
-{"id": 23, "offset_s": 8.64, "t": "2026-09-28T19:34:13.462711+00:00", "stage": "synthesis", "msg": "Synthesising final recommendation and generating assessment report"}
-{"id": 24, "offset_s": 8.64, "t": "2026-09-28T19:34:13.463936+00:00", "stage": "synthesis", "msg": "Assessment complete: overall verdict NO_GO"}
+{"id": 1, "offset_s": 0.0, "t": "2026-09-28T19:37:23.598216+00:00", "stage": "location", "msg": "Resolving site location and postcode"}
+{"id": 2, "offset_s": 0.03, "t": "2026-09-28T19:37:23.627055+00:00", "stage": "location", "msg": "Location resolved: RH4 1AD (51.2329, -0.3302)"}
+{"id": 3, "offset_s": 0.04, "t": "2026-09-28T19:37:23.634800+00:00", "stage": "capacity", "msg": "Evaluating grid capacity and primary substations"}
+{"id": 4, "offset_s": 1.17, "t": "2026-09-28T19:37:24.773143+00:00", "stage": "capacity", "msg": "Grid capacity evaluated: 8 MW at Dorking Town 11kV (viable)"}
+{"id": 5, "offset_s": 1.18, "t": "2026-09-28T19:37:24.780895+00:00", "stage": "title", "msg": "Searching HM Land Registry INSPIRE polygons around the site"}
+{"id": 6, "offset_s": 1.4, "t": "2026-09-28T19:37:25.001640+00:00", "stage": "title", "msg": "600 INSPIRE polygons found, pin on polygon 55889853 (209 m\u00b2)"}
+{"id": 7, "offset_s": 1.64, "t": "2026-09-28T19:37:25.233599+00:00", "stage": "title", "msg": "Measuring the BESS footprint against the INSPIRE polygons"}
+{"id": 8, "offset_s": 1.71, "t": "2026-09-28T19:37:25.304065+00:00", "stage": "title", "msg": "Confirmed site: 20 polygon(s), 1.77 ha (footprint on 34562003 16%, 34564191 10%, 34570811 5%, 34578338 5%, 59812380 4%, 34568557 4%, 55889853 3%, 34565055 2%, 34572102 2%, 34571907 1%, 34571398 1%, 34566763 1%, 34571210 1%, 34572727 1%, 34573208 1%, 34570738 1%, 34572316 1%, 34572843 1%, 34564614 1%, 34565100 1%)"}
+{"id": 9, "offset_s": 1.72, "t": "2026-09-28T19:37:25.316593+00:00", "stage": "grid", "msg": "Assessing grid connection queue and timescales"}
+{"id": 10, "offset_s": 1.73, "t": "2026-09-28T19:37:25.326400+00:00", "stage": "grid", "msg": "Grid connection assessment complete (Gate 2 position: 1)"}
+{"id": 11, "offset_s": 1.73, "t": "2026-09-28T19:37:25.326958+00:00", "stage": "site_land", "msg": "Analyzing environmental constraints and land classification"}
+{"id": 12, "offset_s": 1.74, "t": "2026-09-28T19:37:25.336730+00:00", "stage": "market", "msg": "Modeling wholesale, capacity market, and ancillary service revenues"}
+{"id": 13, "offset_s": 1.74, "t": "2026-09-28T19:37:25.337926+00:00", "stage": "market", "msg": "Market revenue projected: \u00a3116,512/MW/yr"}
+{"id": 14, "offset_s": 1.74, "t": "2026-09-28T19:37:25.338778+00:00", "stage": "sentiment", "msg": "Analyzing local community sentiment and planning records"}
+{"id": 15, "offset_s": 1.86, "t": "2026-09-28T19:37:25.458392+00:00", "stage": "sentiment", "msg": "Searching local news and planning coverage for Dorking (Mole Valley)"}
+{"id": 16, "offset_s": 1.89, "t": "2026-09-28T19:37:25.486694+00:00", "stage": "sentiment", "msg": "Kept 4 sources; analyzing planning sentiment"}
+{"id": 17, "offset_s": 1.89, "t": "2026-09-28T19:37:25.493073+00:00", "stage": "sentiment", "msg": "Local sentiment assessed (opposition index: 0.82)"}
+{"id": 18, "offset_s": 6.02, "t": "2026-09-28T19:37:29.613860+00:00", "stage": "site_land", "msg": "Site land constraints assessed: 2 constraints noted"}
+{"id": 19, "offset_s": 6.03, "t": "2026-09-28T19:37:29.627652+00:00", "stage": "financial", "msg": "Simulating 25-year financial models across 2h, 4h, and 8h durations"}
+{"id": 20, "offset_s": 6.03, "t": "2026-09-28T19:37:29.630809+00:00", "stage": "financial", "msg": "Financial returns modeled (recommended: 4h duration)"}
+{"id": 21, "offset_s": 6.03, "t": "2026-09-28T19:37:29.632238+00:00", "stage": "planning", "msg": "Evaluating consenting routes and planning risk profile"}
+{"id": 22, "offset_s": 9.87, "t": "2026-09-28T19:37:33.471066+00:00", "stage": "planning", "msg": "Consenting route determined: Local planning authority consent (Town and Country Planning Act 1990) - Mole Valley LPA"}
+{"id": 23, "offset_s": 9.88, "t": "2026-09-28T19:37:33.480961+00:00", "stage": "synthesis", "msg": "Synthesising final recommendation and generating assessment report"}
+{"id": 24, "offset_s": 9.88, "t": "2026-09-28T19:37:33.481877+00:00", "stage": "synthesis", "msg": "Assessment complete: overall verdict NO_GO"}

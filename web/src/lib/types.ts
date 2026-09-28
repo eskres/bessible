@@ -92,6 +92,7 @@ export interface Artifact {
   id: string;
   stage: string;
   claim: string;
+  details?: string[]; // items behind the claim, listed when it is opened
   confidence: number;
   source_name?: string;
   model_used?: string;
