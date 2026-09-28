@@ -114,6 +114,25 @@ export function footprintShares(
   return { shares, uncoveredPct: Math.max(0, 100 - covered) };
 }
 
+/** Ray casting: the point is inside the ring. */
+function inRing([x, y]: [number, number], ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** The parcel under a point (lon, lat), or null: a road, river, unregistered land, or no loaded polygon there. */
+export function parcelAt(parcels: TitleParcel[], point: [number, number]): TitleParcel | null {
+  return (
+    parcels.find((p) => polygons(p.geometry).some(([outer, ...holes]) => inRing(point, outer) && !holes.some((h) => inRing(point, h)))) ??
+    null
+  );
+}
+
 /** Parcels from a `/inspire` FeatureCollection (features carry the `TitleParcel` fields as properties). */
 export function parcelsFromCollection(fc: GeoJSON.FeatureCollection | null): TitleParcel[] {
   if (!fc) return [];

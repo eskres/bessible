@@ -22,6 +22,10 @@ interface TitleParcelsPanelProps {
   shares: ParcelShare[];
   uncoveredPct: number;
   siteIds: string[];
+  /** The polygon under the pin where it is now. */
+  pinId: string | null;
+  /** The pin has left the circle the title search covered, so polygons around it may not be loaded. */
+  outsideSearch?: boolean;
   /** True once the user clicked a polygon: the clicked set is the site, not the footprint's. */
   clicked: boolean;
   onToggle: (parcel: TitleParcel) => void;
@@ -38,6 +42,8 @@ export default function TitleParcelsPanel({
   shares,
   uncoveredPct,
   siteIds,
+  pinId,
+  outsideSearch = false,
   clicked,
   onToggle,
   onReset,
@@ -47,7 +53,6 @@ export default function TitleParcelsPanel({
   const share = new Map(shares.map((s) => [s.parcel.inspire_id, s.pct]));
   const site = siteIds.map((id) => byId.get(id)).filter((p): p is TitleParcel => !!p);
   const siteArea = site.reduce((sum, p) => sum + p.area_m2, 0);
-  const pinId = title.pin_parcel?.inspire_id;
   const numbers = title.title_numbers ?? [];
 
   return (
@@ -66,6 +71,11 @@ export default function TitleParcelsPanel({
           {pinId ? (
             <>
               The pin is on INSPIRE polygon <span className="font-mono">{pinId}</span>.{' '}
+            </>
+          ) : outsideSearch ? (
+            <>
+              The pin is outside the {title.search_radius_m} m the title search covered, so polygons here are not
+              loaded: use Load title polygons in view.{' '}
             </>
           ) : (
             <>The pin is on no INSPIRE polygon (a road, river, unregistered land, or outside England). </>

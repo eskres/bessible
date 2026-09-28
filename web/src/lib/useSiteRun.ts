@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AssessmentResult, CapacityOutput, RunStatus, SiteDecision, TitleParcel, TraceEvent } from './types';
 import { generateFootprintPolygon } from './footprint';
-import { footprintShares } from './parcels';
+import { footprintShares, parcelAt } from './parcels';
 import { getRunResult, getRunStatus, retryStages, sendDecision, subscribeEvents } from './api';
 
 /** Statuses a run never leaves: polling and streaming stop here. */
@@ -188,13 +188,15 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
         shares,
         uncoveredPct: shares.length ? Math.max(0, 100 - covered) : 0,
         siteIds: confirmedParcels.map((p) => p.inspire_id),
+        pinId: parcelAt(confirmedParcels, currentPosition)?.inspire_id ?? null,
       };
     }
     const pool = [...(candidates ?? []), ...addedParcels];
     const footprint = generateFootprintPolygon(currentPosition, selectedCapacityMw, 4);
     const { shares, uncoveredPct } = footprintShares(pool, footprint);
     const siteIds = clickedIds ?? shares.map((s) => s.parcel.inspire_id);
-    return { pool, shares, uncoveredPct, siteIds };
+    // The polygon under the pin where it is now, not where the title search found it
+    return { pool, shares, uncoveredPct, siteIds, pinId: parcelAt(pool, currentPosition)?.inspire_id ?? null };
   })();
 
   /** The site as the user left it. */
