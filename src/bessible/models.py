@@ -464,6 +464,22 @@ class DurationCase(BaseModel):
     equity_gbp: float | None = None  # year-0 equity: capex not covered by debt, plus the arrangement fee
 
 
+class AssumptionSource(BaseModel):
+    """One documented input to the financial model, as the report's data sources list shows it."""
+
+    key: str  # the key in `data/assumptions/finance.json`
+    group: Literal["costs", "financing", "grid"]
+    label: str
+    value: str  # formatted with its unit, for example "£98,400/MWh" or "10.36%"
+    source: str
+    source_url: str | None = None
+    publisher: str | None = None
+    published: str | None = None
+    quote: str | None = None
+    derivation: str | None = None
+    placeholder: bool = False
+
+
 REQUIRED_DURATION_HOURS = (2, 4, 8)
 
 
@@ -479,6 +495,7 @@ class FinancialOutput(BaseModel):
     interest_rate_pct: float | None = None
     arrangement_fee_pct: float | None = None
     loan_term_years: int | None = None
+    sources: list[AssumptionSource] = Field(default_factory=list)  # the assumptions behind every figure
     artifacts: list[Artifact] = Field(default_factory=list)
 
     @model_validator(mode="after")

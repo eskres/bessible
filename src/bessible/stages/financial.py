@@ -10,6 +10,7 @@ from bessible.finance import load_finance_assumptions
 from bessible.finance.cost import VOLTAGE_132KV, CostBreakdown, cost
 from bessible.finance.curtailment import curtailment_pct, load_demand_profile, load_duration_curve
 from bessible.finance.returns import returns
+from bessible.finance.sources import finance_sources
 from bessible.market.stack import total
 from bessible.models import Artifact, DurationCase, FinancialInput, FinancialOutput
 
@@ -158,5 +159,6 @@ async def financial_model(inp: FinancialInput) -> FinancialOutput:
         interest_rate_pct=int_rate,
         arrangement_fee_pct=arr_fee,
         loan_term_years=loan_term,
+        sources=finance_sources(a, voltage_kv),
         artifacts=[art_cost, art_curtailment, art_returns],
     )

@@ -232,6 +232,21 @@ export interface FinancialCase {
   equity_gbp?: number | null;
 }
 
+/** Mirrors `AssumptionSource` in `src/bessible/models.py`: one documented input to the financial model. */
+export interface AssumptionSource {
+  key: string;
+  group: 'costs' | 'financing' | 'grid';
+  label: string;
+  value: string;
+  source: string;
+  source_url?: string | null;
+  publisher?: string | null;
+  published?: string | null;
+  quote?: string | null;
+  derivation?: string | null;
+  placeholder?: boolean;
+}
+
 /** Mirrors `FinancialOutput` in `src/bessible/models.py`. */
 export interface FinancialOutput {
   cases: FinancialCase[];
@@ -243,6 +258,7 @@ export interface FinancialOutput {
   interest_rate_pct?: number | null;
   arrangement_fee_pct?: number | null;
   loan_term_years?: number | null;
+  sources?: AssumptionSource[];
   artifacts?: Artifact[];
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AssessmentResult, Artifact, FinancialCase } from '../lib/types';
+import { AssessmentResult, Artifact, AssumptionSource, FinancialCase } from '../lib/types';
 import { downloadMarkdownReport, printReport } from '../lib/reportExport';
 import DataGaps from './DataGaps';
 import { StageBadge, stageStyle } from '../lib/stages';
@@ -55,6 +55,54 @@ const ARTIFACT_CATEGORIES: { label: string; stages: string[]; style: string }[] 
   { label: 'Revenue & Finance', stages: ['market', 'financial'], style: 'financial' },
   { label: 'Verdict', stages: ['synthesis'], style: 'synthesis' },
 ];
+
+/** The groups of the finance modal's data sources list, in display order. */
+const SOURCE_GROUPS: { group: AssumptionSource['group']; label: string }[] = [
+  { group: 'costs', label: 'Costs' },
+  { group: 'financing', label: 'Financing' },
+  { group: 'grid', label: 'Curtailment' },
+];
+
+/** One assumption: label and value, then its source (linked when it has a URL), date and the quote behind it. */
+function SourceRow({ s }: { s: AssumptionSource }) {
+  return (
+    <li className="py-2 border-b border-border last:border-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-medium text-foreground">{s.label}</span>
+        <span className="tabular-nums text-foreground shrink-0">{s.value}</span>
+      </div>
+      <div className="mt-0.5 text-muted-foreground">
+        {s.placeholder && (
+          <Badge className="mr-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px]">
+            Placeholder
+          </Badge>
+        )}
+        {s.source_url ? (
+          <a
+            href={s.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted hover:text-foreground"
+          >
+            {s.publisher ?? s.source}
+            <ExternalLink className="inline w-3 h-3 ml-0.5 -mt-0.5" />
+          </a>
+        ) : (
+          <span>{s.source}</span>
+        )}
+        {s.published && <span> · {s.published}</span>}
+      </div>
+      {(s.quote || s.derivation) && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Evidence</summary>
+          {s.publisher && s.source_url && <p className="mt-1 text-muted-foreground">{s.source}</p>}
+          {s.quote && <blockquote className="mt-1 border-l-2 border-border pl-2 italic text-muted-foreground">{s.quote}</blockquote>}
+          {s.derivation && <p className="mt-1 text-muted-foreground">Derivation: {s.derivation}</p>}
+        </details>
+      )}
+    </li>
+  );
+}
 
 function groupArtifacts(artifacts: Artifact[]): { label: string; style: string; items: Artifact[] }[] {
   const known = new Set(ARTIFACT_CATEGORIES.flatMap((c) => c.stages));
@@ -154,6 +202,8 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
   const gbpM = (gbp: number, digits = 2) => `£${(gbp / 1000000).toFixed(digits)}M`;
   const equity = activeCase?.equity_gbp ?? null;
   const debtShare = financial?.debt_share_pct;
+  const financeSources = financial?.sources ?? [];
+  const marketArtifacts = artifacts.filter((a) => a.stage === 'market');
   const financeInfoButton = (
     <button
       type="button"
@@ -763,7 +813,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
 
       {/* How the financial cards are calculated */}
       <Dialog open={financeInfoOpen} onOpenChange={setFinanceInfoOpen}>
-        <DialogContent className="sm:max-w-lg border-border bg-card rounded-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col border-border bg-card rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
               <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -773,7 +823,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
               A plain-code model (no language model) computes every figure from the documented assumptions.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 text-xs leading-relaxed">
+          <div className="space-y-4 text-xs leading-relaxed overflow-y-auto -mr-4 pr-4">
             <section>
               <h4 className="font-semibold text-foreground">
                 Initial Capex{activeCase ? ` · ${gbpM(activeCase.capex_gbp)}` : ''}
@@ -826,6 +876,54 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             <section className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-amber-950 dark:text-amber-200">
               <strong>Not in the model:</strong> battery degradation, augmentation, revenue change over time, tax and
               decommissioning. Treat the figures as optimistic screening estimates.
+            </section>
+            <section>
+              <h4 className="font-semibold text-foreground">Data sources</h4>
+              <p className="text-muted-foreground">
+                Every input the model uses, with its source. &quot;Placeholder&quot; marks a value the team has not
+                yet matched to a published source.
+              </p>
+              {marketArtifacts.length > 0 && (
+                <div className="mt-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue</h5>
+                  <ul>
+                    {marketArtifacts.map((a) => (
+                      <li key={a.id} className="py-2 border-b border-border last:border-0 text-muted-foreground">
+                        {a.claim}
+                        {a.source_url && (
+                          <a
+                            href={a.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-1 underline decoration-dotted hover:text-foreground"
+                          >
+                            Source
+                            <ExternalLink className="inline w-3 h-3 ml-0.5 -mt-0.5" />
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {SOURCE_GROUPS.map(({ group, label }) => {
+                const rows = financeSources.filter((s) => s.group === group);
+                return rows.length === 0 ? null : (
+                  <div key={group} className="mt-3">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {label}
+                    </h5>
+                    <ul>
+                      {rows.map((s) => (
+                        <SourceRow key={s.key} s={s} />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+              {financeSources.length === 0 && marketArtifacts.length === 0 && (
+                <p className="mt-2 text-muted-foreground">This run did not record its data sources.</p>
+              )}
             </section>
           </div>
         </DialogContent>
