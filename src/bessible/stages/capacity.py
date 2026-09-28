@@ -181,7 +181,13 @@ def _alternates(
         alt_exp = export_ceiling(row, snapshot)
         alt = Headroom(row, flexible=flexible, export_ceiling_mw=alt_exp)
         option = AlternateOption(
-            substation=row.name or "", distance_km=round(d, 2), size_mw=round(alt.size_mw, 2), marginal=d > MARGINAL_KM
+            substation=row.name or "",
+            distance_km=round(d, 2),
+            size_mw=round(alt.size_mw, 2),
+            marginal=d > MARGINAL_KM,
+            position=Position(lat=row.latitude, lon=row.longitude)
+            if row.latitude is not None and row.longitude is not None
+            else None,
         )
         scored.append((alt.size_mw * distance_weight(d), option))
     return [opt for _, opt in sorted(scored, key=lambda t: -t[0])]
@@ -388,6 +394,7 @@ def _propose_grid_level(
             distance_km=round(d, 2),
             size_mw=round(alt_size, 2),
             marginal=d > MARGINAL_KM,
+            position=Position(lat=g.position.lat, lon=g.position.lon),
         )
         scored_alts.append((alt_size * distance_weight(d), opt))
     alternates = [opt for _, opt in sorted(scored_alts, key=lambda t: -t[0])]
@@ -677,6 +684,7 @@ async def _propose_live(position: Position, run_id: str) -> CapacityOutput | Non
                 distance_km=round(s.distance_km, 2),
                 size_mw=round(live_firm_mw(s), 2),
                 marginal=s.distance_km > MARGINAL_KM,
+                position=Position(lat=s.coords.lat, lon=s.coords.lon),
             )
             for s in primaries[1 : MAX_ALTERNATES + 1]
         ],

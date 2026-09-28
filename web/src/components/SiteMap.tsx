@@ -156,6 +156,9 @@ function createHatchOverlay(bounds: Bounds): HatchOverlay {
 
 // Yellow, not blue (blue reads as water), on a dark casing so it still shows along Google's yellow main roads
 const CABLE_COLOR = '#FBEC5D';
+/** Substations closer than this share one map point (a grid substation and its primary on one site). */
+const SAME_SITE_KM = 0.2;
+const STACK_OFFSET_PX = 30;
 const CABLE_CASING = '#1f2937';
 const CABLE_OPACITY = 1;
 const POWER_LINE = '#D32F2F';
@@ -505,17 +508,36 @@ export default function SiteMap({
     if (siteData) return;
 
     const ranked = rankedSubstations(servingSubstation, substations);
-    ranked.forEach((sub, idx) => {
-      // The serving substation's real position when the capacity check returns it; the rest are estimated
-      const isServing = servingPosition && sub.name.toLowerCase() === servingSubstation?.name.toLowerCase();
-      const subCoords: [number, number] = isServing
+    // The serving substation's real position when the capacity check returns it, else the alternate's own; the rest
+    // are estimated
+    const placed = ranked.map((sub, idx) => {
+      const isServing = !!servingPosition && sub.name.toLowerCase() === servingSubstation?.name.toLowerCase();
+      const coords: [number, number] = isServing
         ? [servingPosition.lon, servingPosition.lat]
-        : estimatedSubstationCoords(initialCenter, sub.distance_km, idx, ranked.length);
+        : sub.position
+          ? [sub.position.lon, sub.position.lat]
+          : estimatedSubstationCoords(initialCenter, sub.distance_km, idx, ranked.length);
+      return { sub, coords, isServing };
+    });
+    // Substations on one site (a grid substation and its primary) share its point, stacked serving first then by
+    // headroom, so their labels neither overlap nor swap places when the markers are redrawn
+    const sites: { coords: [number, number]; members: typeof placed }[] = [];
+    for (const p of [...placed].sort((a, b) => Number(b.isServing) - Number(a.isServing))) {
+      const site = sites.find((s) => distanceKm(s.coords, p.coords) < SAME_SITE_KM);
+      if (site) site.members.push(p);
+      else sites.push({ coords: p.coords, members: [p] });
+    }
+    const stacked = sites.flatMap((site) =>
+      [...site.members]
+        .sort((a, b) => Number(b.isServing) - Number(a.isServing) || b.sub.effective_headroom_mw - a.sub.effective_headroom_mw)
+        .map((p, level) => ({ ...p, coords: site.coords, level }))
+    );
 
+    stacked.forEach(({ sub, coords: subCoords, level }) => {
       const el = document.createElement('div');
       el.className = 'substation-marker group cursor-pointer';
       el.innerHTML = `
-        <div class="relative flex flex-col items-center">
+        <div class="relative flex flex-col items-center" style="transform: translateY(-${level * STACK_OFFSET_PX}px)">
           <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg shadow-md text-xs font-semibold ${
             sub.is_marginal
               ? 'bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-100'
@@ -526,7 +548,7 @@ export default function SiteMap({
             <span class="ml-0.5 opacity-90 font-mono text-[11px]">${sub.effective_headroom_mw}MW</span>
             ${sub.is_marginal ? '<span class="bg-amber-200 text-amber-950 text-[9px] px-1 rounded font-bold uppercase">Marginal</span>' : ''}
           </div>
-          <div class="w-2 h-2 rotate-45 -mt-1 ${sub.is_marginal ? 'bg-amber-300' : 'bg-blue-600'}"></div>
+          ${level ? '' : `<div class="w-2 h-2 rotate-45 -mt-1 ${sub.is_marginal ? 'bg-amber-300' : 'bg-blue-600'}"></div>`}
         </div>
       `;
 

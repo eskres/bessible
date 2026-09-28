@@ -407,7 +407,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">Estimated Cable Route Distance</span>
               <span className="font-mono font-semibold text-foreground">
-                {grid_connection?.distance_km?.toFixed(2) || '0.65'} km
+                {(grid_connection?.distance_km ?? cap.route?.distance_km ?? cap.distance_km)?.toFixed(2) ?? '—'} km
               </span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">
@@ -623,9 +623,9 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                     <span className={`shrink-0 w-20 text-center px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase ${tone}`}>
                       {outcome}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-semibold capitalize text-foreground">{name}</div>
-                      <div className="text-muted-foreground mt-0.5">{reason}</div>
+                      <div className="text-muted-foreground mt-0.5 break-words">{reason}</div>
                     </div>
                   </div>
                 );
@@ -763,6 +763,13 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                 <p className="text-sm font-semibold text-foreground mt-1 bg-muted/30 p-3 rounded-xl border border-border leading-relaxed">
                   {selectedArtifact.claim}
                 </p>
+                {!!selectedArtifact.details?.length && (
+                  <ul className="mt-2 max-h-48 overflow-y-auto list-disc pl-5 space-y-0.5 font-mono text-[11px] text-foreground">
+                    {selectedArtifact.details.map((d) => (
+                      <li key={d}>{d}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 py-2 border-y border-border">

@@ -41,6 +41,9 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 
+CONFIRM_TITLE_MSG = "Measuring the BESS footprint against the INSPIRE polygons"  # the first event after the gate
+
+
 def _model_for(request: AssessmentRequest) -> Model:
     """Build the run owner's Gemini for this activity. A run without a usable key fails here and is not retried."""
     try:
@@ -114,7 +117,7 @@ async def find_title_boundaries(inp: TitleInput) -> TitleOutput:
 @activity.defn
 async def confirm_title_site(inp: TitleSiteInput) -> TitleOutput:
     """Temporal activity: the polygons the confirmed site covers, after the human placed the footprint."""
-    events.emit(inp.run_id, "title", "Measuring the BESS footprint against the INSPIRE polygons")
+    events.emit(inp.run_id, "title", CONFIRM_TITLE_MSG)
     try:
         res = await stages.title.confirm_title_site(inp)
     except ValidationError as exc:

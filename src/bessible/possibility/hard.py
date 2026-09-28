@@ -56,7 +56,12 @@ def title_found(proposal: Proposal) -> Check:
     title = proposal.location.title
     if title is None:
         return result("unknown", "No registered title boundary at this point.")
-    return result("pass", f"Title {title.inspire_id} covers {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    ids = title.inspire_id.split("+")  # a confirmed site joins its polygons' ids
+    if len(ids) == 1:
+        return result("pass", f"INSPIRE polygon {ids[0]} covers {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    # A site can join dozens of polygons: count them in the reason, list them in the details
+    check = result("pass", f"{len(ids)} INSPIRE polygons cover {title.area_ha:.2f} ha.", inspire_id=title.inspire_id)
+    return check.model_copy(update={"details": [f"INSPIRE polygon {i}" for i in ids]})
 
 
 def enough_area(proposal: Proposal) -> Check:

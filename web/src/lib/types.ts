@@ -23,6 +23,7 @@ export interface SubstationOption {
   effective_headroom_mw: number;
   voltage_kv: number;
   is_marginal: boolean; // true if distance > 1 km
+  position?: PositionCoords | null; // real coordinates when the capacity check returns them
 }
 
 /** Backend spelling of a capacity alternate, before `normalizeCapacity` maps it to a SubstationOption. */
@@ -91,6 +92,7 @@ export interface Artifact {
   id: string;
   stage: string;
   claim: string;
+  details?: string[]; // items behind the claim, listed when it is opened
   confidence: number;
   source_name?: string;
   model_used?: string;

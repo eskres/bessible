@@ -204,6 +204,7 @@ def test_demo_replay_events_sse(client: TestClient):
 
     # Confirm to let it run through
     import time
+
     for _ in range(30):
         st = client.get(f"/demo/runs/{run_id}/status").json()
         if st["status"] == "awaiting_confirmation":
@@ -301,3 +302,69 @@ def test_save_run_recording_without_a_decision_writes_no_decision_file(tmp_path:
     )
     assert (out / "result.json").exists()
     assert not (out / "decision.json").exists()
+
+
+def _await_status(client: TestClient, run_id: str, want: str) -> dict:
+    import time
+
+    for _ in range(100):
+        st = client.get(f"/demo/runs/{run_id}/status").json()
+        if st["status"] == want:
+            return st
+        time.sleep(0.05)
+    pytest.fail(f"{run_id} never reached {want}")
+
+
+def test_a_moved_pin_is_re_assessed_instead_of_replayed(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    from bessible import events
+    from bessible.api import demo
+
+    seen: dict[str, SiteDecision] = {}
+
+    async def fake_rerun(run_id, request, gate, recorded, decision):
+        seen["decision"] = decision
+        events.emit(run_id, "site_land", "Site land constraints assessed: 0 constraints noted")
+        moved = gate.boundary.model_copy(update={"inspire_ids": ["moved"]})
+        site = recorded.site.model_copy(update={"position": decision.position, "boundary": moved})
+        return recorded.model_copy(update={"run_id": run_id, "site": site})
+
+    monkeypatch.setattr(demo, "rerun", fake_rerun)
+    run_id = client.post("/demo/runs", json={"slug": "histon", "pacing_multiplier": 0.0}).json()["run_id"]
+    gate = _await_status(client, run_id, "awaiting_confirmation")
+    pin = gate["position"]
+    moved = {"lat": pin["lat"] - 0.007, "lon": pin["lon"] + 0.02}  # toward Arbury
+
+    assert client.post(f"/demo/runs/{run_id}/decision", json={"confirmed": True, "position": moved}).status_code == 204
+    done = _await_status(client, run_id, "completed")
+
+    assert seen["decision"].position == Position(**moved)
+    assert done["boundary"]["inspire_ids"] == ["moved"]
+    assert client.get(f"/demo/runs/{run_id}/result").json()["site"]["position"] == moved
+    trace = [
+        json.loads(line[6:])["msg"]
+        for line in client.get(f"/demo/runs/{run_id}/events").text.splitlines()
+        if line.startswith("data: ")
+    ]
+    assert "Site land constraints assessed: 0 constraints noted" in trace
+
+
+def test_changes_site_only_for_a_different_choice():
+    from bessible.demo_rerun import changes_site
+
+    here = Position(lat=52.245, lon=0.1082)
+    gate = RunStatus(
+        status="awaiting_confirmation",
+        position=here,
+        capacity=CapacityOutput(viable=True, firm_mw=37.7, ceiling_mw=50, recommended_mw=37.7),
+    )
+    request = AssessmentRequest(postcode="CB24 9ZR")
+
+    def changes(**decision) -> bool:
+        return changes_site(SiteDecision(confirmed=True, **decision), gate, request)
+
+    assert not changes()
+    assert not changes(position=here, capacity_mw=37.7, flexible_connection=False, title_ids=None)
+    assert changes(position=Position(lat=52.24, lon=0.12))
+    assert changes(capacity_mw=20)
+    assert changes(flexible_connection=True)
+    assert changes(title_ids=["39165193"])

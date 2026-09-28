@@ -33,6 +33,7 @@ def artifact_from(check: Check, run_id: str) -> Artifact | None:
         id=f"site_land-{check.name}-{run_id[:8]}",
         stage="site_land",
         claim=f"{OUTCOME_WORDS[check.outcome]}: {check.label} — {check.reason}",
+        details=check.details,
         source_url=HttpUrl(_citable(check.source_urls[0])),
         confidence=check.confidence,
         model_used=check.produced_by,

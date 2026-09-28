@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
+import shutil
 import time
 from typing import TYPE_CHECKING, Any
 import uuid
@@ -19,7 +20,10 @@ from fastapi import APIRouter, HTTPException, Header, Query, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from bessible import events
+from bessible.activities import CONFIRM_TITLE_MSG
 from bessible.config import settings
+from bessible.demo_rerun import changes_site, rerun
 from bessible.models import (
     AssessmentRequest,
     AssessmentResult,
@@ -35,6 +39,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/demo/runs", tags=["demo"])
 
 PRE_GATE_STAGES = {"location", "capacity", "title"}
+RERUN_POLL_S = 0.25  # how often a re-run's trace file is read
 EARLY_END_STATUSES = ("out_of_area", "not_viable")
 
 
@@ -75,11 +80,10 @@ class DemoReplaySession:
         self.emitted_events: list[dict[str, Any]] = []
         self.is_completed = False
         self.is_awaiting_confirmation = False
+        self.decision: SiteDecision | None = None  # the visitor's, once they confirm
 
         # Initialize current status from first snapshot or default running
-        first_status = self._find_snapshot_status(stage="location") or RunStatus(
-            status="running", stages=["location"]
-        )
+        first_status = self._find_snapshot_status(stage="location") or RunStatus(status="running", stages=["location"])
         self.current_status: RunStatus = first_status.model_copy(update={"run_id": run_id})
 
         self._task: asyncio.Task[None] | None = None
@@ -108,8 +112,9 @@ class DemoReplaySession:
         """Get the current live status snapshot for this replay."""
         return self.current_status.model_copy(update={"run_id": self.run_id})
 
-    def submit_decision(self, _decision: SiteDecision) -> None:
+    def submit_decision(self, decision: SiteDecision) -> None:
         """Accept visitor decision and unpause the gate."""
+        self.decision = decision
         self.is_awaiting_confirmation = False
         if self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(self.confirmed_event.set)
@@ -137,6 +142,8 @@ class DemoReplaySession:
             reached_post = False
             for ev in self.raw_events:
                 stg = ev.get("stage", "")
+                # The title stage runs on both sides of the gate: its confirmation half comes after it
+                reached_post = reached_post or ev.get("msg") == CONFIRM_TITLE_MSG
                 if not reached_post and stg in PRE_GATE_STAGES:
                     pre_gate.append(ev)
                 else:
@@ -184,6 +191,11 @@ class DemoReplaySession:
             self.is_awaiting_confirmation = True
             await self.confirmed_event.wait()
 
+            # 3a. The visitor chose another site: assess it for real, keylessly, instead of replaying
+            if gate_status and self.decision and changes_site(self.decision, gate_status, self.request):
+                await self._rerun(gate_status, self.decision)
+                return
+
             # 3. Decision received -> resume post-gate events
             first_post_stage = post_gate[0].get("stage", "grid") if post_gate else "grid"
             post_status = self._find_snapshot_status(stage=first_post_stage)
@@ -215,9 +227,7 @@ class DemoReplaySession:
             if completed_status:
                 self.current_status = completed_status.model_copy(update={"run_id": self.run_id})
             else:
-                self.current_status = self.current_status.model_copy(
-                    update={"status": "completed", "stages": []}
-                )
+                self.current_status = self.current_status.model_copy(update={"status": "completed", "stages": []})
 
             self.is_completed = True
             async with self.new_event_cond:
@@ -227,12 +237,58 @@ class DemoReplaySession:
             pass
         except Exception:
             logger.exception("Error in demo replay for %s", self.run_id)
-            self.current_status = self.current_status.model_copy(
-                update={"status": "failed", "stages": []}
-            )
+            self.current_status = self.current_status.model_copy(update={"status": "failed", "stages": []})
             self.is_completed = True
             async with self.new_event_cond:
                 self.new_event_cond.notify_all()
+
+    async def _rerun(self, gate: RunStatus, decision: SiteDecision) -> None:
+        """Re-assess the visitor's site (`bessible.demo_rerun`), streaming its trace events as they are written."""
+        self.current_status = gate.model_copy(update={"run_id": self.run_id, "status": "running", "stages": ["title"]})
+        done = asyncio.Event()
+        forward = asyncio.create_task(self._forward_trace(done))
+        try:
+            result = await rerun(self.run_id, self.request, gate, self.result, decision)
+        finally:
+            done.set()
+            await forward
+        self.result = result
+        site = result.site
+        self.current_status = self.current_status.model_copy(
+            update={
+                "status": "completed",
+                "stages": [],
+                "boundary": site.boundary if site else gate.boundary,
+                "position": site.position if site else gate.position,
+            }
+        )
+        self.is_completed = True
+        async with self.new_event_cond:
+            self.new_event_cond.notify_all()
+
+    async def _forward_trace(self, done: asyncio.Event) -> None:
+        """Emit the re-run's trace events (`out/<run_id>/events.jsonl`) into this session's stream until `done`."""
+        path = events.get_events_path(self.run_id)
+        seen = 0
+        while True:
+            finished = done.is_set()  # read before the file, so the last lines are forwarded
+            lines = (
+                [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+                if path.exists()
+                else []
+            )
+            for line in lines[seen:]:
+                ev = json.loads(line)
+                self.current_status = self.current_status.model_copy(update={"stages": [ev.get("stage", "")]})
+                await self._emit_event({
+                    "id": len(self.emitted_events) + 1,
+                    "stage": ev.get("stage"),
+                    "msg": ev.get("msg"),
+                })
+            seen = len(lines)
+            if finished:
+                return
+            await asyncio.sleep(RERUN_POLL_S)
 
     async def stream_events(self, after_id: int = 0) -> AsyncGenerator[str, None]:
         """Stream SSE events with reconnect support and keep-alives during gate pause."""
@@ -271,6 +327,7 @@ def _cleanup_old_sessions() -> None:
     expired = [rid for rid, s in _SESSIONS.items() if s.created_at < cutoff]
     for rid in expired:
         _SESSIONS.pop(rid, None)
+        shutil.rmtree(events.get_events_path(rid).parent, ignore_errors=True)  # a re-run's trace and report files
 
 
 def _resolve_demo_dir(slug: str) -> Path:

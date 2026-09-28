@@ -74,6 +74,10 @@ model used); the report is built only from artifacts. CLI first; a web UI is opt
   `data/recorded/tavily/` holds dated recordings for the offline demo. `uv run python scripts/news_research.py <lat>
   <lon> [--model] [--record] [--fixture NAME]` runs it live and prints every quote with its URL.
 
+- `src/bessible/demo_rerun.py` — the keyless demo (`api/demo.py`) replays `data/demo/<slug>`; when the visitor
+  confirms another pin, capacity or polygons, it re-runs the stages that need no model for their site. Sentiment
+  stays recorded (`AssessmentResult.sentiment`): the pin stays within 2 km, so the local news is the same. Re-record with `bessible.cli record`.
+
 - `sandbox/map_session/` — tracked prototype, the base for the final build (the rest of `sandbox/` is gitignored).
   `workflow.py`: `AssessWorkflow` (task queue `bessible-web`): AI suggests area → human edits on the map (`submit_area`
   update, validated) → `confirm_area` → engines; the UI polls the `state` query. `activities.py` (dummies),

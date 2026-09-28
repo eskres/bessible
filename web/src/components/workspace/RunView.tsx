@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, Compass, Sparkles } from 'lucide-react';
 import type { SiteRun } from '../../lib/useSiteRun';
 import { getInspirePolygons, isDemoRun } from '../../lib/api';
-import { generateFootprintPolygon } from '../../lib/footprint';
+import { distanceKm, generateFootprintPolygon } from '../../lib/footprint';
 import { parcelsFromCollection, shareLabelPosition } from '../../lib/parcels';
 import type { SiteData, SubstationOption, TitleParcel } from '../../lib/types';
 
@@ -237,7 +237,7 @@ export default function RunView({
           siteDataLoading={siteDataLoading}
           freePlacement={freePlacement}
           titleParcels={mapParcels}
-          pinParcelId={title?.pin_parcel?.inspire_id}
+          pinParcelId={titleSite.pinId}
           siteParcelIds={showTitles ? titleSite.siteIds : undefined}
           parcelLabels={parcelLabels}
           onParcelClick={status === 'awaiting_confirmation' ? run.toggleParcel : undefined}
@@ -252,6 +252,10 @@ export default function RunView({
             shares={titleSite.shares}
             uncoveredPct={titleSite.uncoveredPct}
             siteIds={titleSite.siteIds}
+            pinId={titleSite.pinId}
+            outsideSearch={
+              !!title.search_radius_m && distanceKm(run.initialCenter, run.currentPosition) * 1000 > title.search_radius_m
+            }
             clicked={run.clickedIds !== null}
             onToggle={run.toggleParcel}
             onReset={run.resetParcels}

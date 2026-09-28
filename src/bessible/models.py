@@ -104,6 +104,7 @@ class Artifact(BaseModel):
     id: str
     stage: Stage
     claim: str
+    details: list[str] = Field(default_factory=list)  # items behind the claim, listed when it is opened
     source_url: HttpUrl | None = None
     file_path: str | None = None
     image_path: str | None = None
@@ -151,6 +152,7 @@ class AlternateOption(BaseModel):
     distance_km: float
     size_mw: float
     marginal: bool  # farther than 1 km: cable cost and losses make it a weak option
+    position: Position | None = None  # so a moved pin can be matched to its nearest substation
 
 
 class CableRoute(BaseModel):
@@ -595,6 +597,7 @@ class AssessmentResult(BaseModel):
     postcode: str | None = None  # the resolved location's postcode, for the report heading
     report: ReportOutput | None = None
     financial: FinancialOutput | None = None
+    sentiment: SentimentOutput | None = None  # so a keyless demo can re-assess a moved site
     site: ConfirmedSite | None = None  # the site the user confirmed; the report's MW and MWh come from it
     capacity: CapacityOutput | None = None
     artifacts: list[Artifact] = Field(default_factory=list)

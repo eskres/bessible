@@ -8,41 +8,15 @@ import PostcodeInput from './PostcodeInput';
 import RunView from './RunView';
 import { Button } from '@/components/ui/button';
 import { LogOut, Search, Settings } from 'lucide-react';
-import { AssessmentRequest, SiteData } from '../../lib/types';
-import { ApiError, KeyStatus, checkCapacity, getKeyStatus, getSiteData, startRun } from '../../lib/api';
+import { AssessmentRequest } from '../../lib/types';
+import { ApiError, KeyStatus, checkCapacity, getKeyStatus, startRun } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { geocodePostcode } from '../../lib/geocode';
-import { CapacityChecker, DEFAULT_CENTER, useSiteRun } from '../../lib/useSiteRun';
+import { CapacityChecker, useSiteRun } from '../../lib/useSiteRun';
+import { useSiteData } from '../../lib/useSiteData';
 
 const checkLiveCapacity: CapacityChecker = (pos, flexible) => checkCapacity(pos, flexible).catch(() => null);
 
-/** Real data for wherever the pin is: coordinate -> location.collate -> LocationData. */
-function useSiteData([lon, lat]: [number, number]) {
-  const [siteData, setSiteData] = useState<SiteData | null>(null);
-  const [siteDataLoading, setSiteDataLoading] = useState(false);
-
-  useEffect(() => {
-    if (lon === DEFAULT_CENTER[0] && lat === DEFAULT_CENTER[1]) return; // untouched default
-    let stale = false;
-    const timer = setTimeout(async () => {
-      setSiteDataLoading(true);
-      try {
-        const data = await getSiteData(lat, lon);
-        if (!stale && data) setSiteData(data);
-      } catch {
-        // keep the last layer
-      } finally {
-        if (!stale) setSiteDataLoading(false);
-      }
-    }, 400);
-    return () => {
-      stale = true;
-      clearTimeout(timer);
-    };
-  }, [lon, lat]);
-
-  return { siteData, siteDataLoading };
-}
 
 interface LiveWorkspaceProps {
   onViewDemo: () => void;

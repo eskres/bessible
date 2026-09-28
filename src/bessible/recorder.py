@@ -183,7 +183,8 @@ def save_run_recording(
             # Dict of RunStatus fields directly
             normalized_statuses.append({"stage": item.get("stages", [None])[0] or item.get("status"), "status": item})
 
-    statuses_json = json.dumps(normalized_statuses, indent=2)
+    # Compact: the snapshots and result carry thousands of polygon coordinates, which indenting triples in size
+    statuses_json = json.dumps(normalized_statuses, separators=(",", ":"), ensure_ascii=False)
     (out_dir / "statuses.json").write_text(statuses_json, encoding="utf-8")
 
     # 4. Human-in-the-loop decision
@@ -193,7 +194,7 @@ def save_run_recording(
         (out_dir / "decision.json").write_text(decision.model_dump_json(indent=2), encoding="utf-8")
 
     # 5. Assessment result
-    res_json = result.model_dump_json(indent=2)
+    res_json = result.model_dump_json()
     (out_dir / "result.json").write_text(res_json, encoding="utf-8")
 
     # Mandatory security check

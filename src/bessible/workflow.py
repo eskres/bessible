@@ -378,6 +378,7 @@ class AssessmentWorkflow:
             status="completed",
             report=report,
             financial=analysis.financial,
+            sentiment=analysis.sentiment,
             site=site,
             capacity=self._capacity,
             artifacts=all_artifacts + report.artifacts,
