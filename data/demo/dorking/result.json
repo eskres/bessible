@@ -1,7 +1,7 @@
 {
   "status": "completed",
   "message": null,
-  "run_id": "bessible-record-dorking-9b776262",
+  "run_id": "bessible-record-dorking-f8784ec6",
   "postcode": "RH4 1AD",
   "report": {
     "verdict": "no_go",
@@ -3223,7 +3223,11 @@
         "substation": "Betchworth 11kV",
         "distance_km": 4.69,
         "size_mw": 2.2,
-        "marginal": true
+        "marginal": true,
+        "position": {
+          "lat": 51.24712046743657,
+          "lon": -0.2667762324332021
+        }
       }
     ],
     "tia_threshold_mw": 1,
@@ -3301,7 +3305,7 @@
       {
         "id": "capacity-live-check-bessible",
         "stage": "capacity",
-        "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+        "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
         "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
         "file_path": null,
         "image_path": null,
@@ -3394,7 +3398,7 @@
     {
       "id": "capacity-live-check-bessible",
       "stage": "capacity",
-      "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+      "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
       "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
       "file_path": null,
       "image_path": null,
@@ -3745,7 +3749,7 @@
       "id": "site_land-substation_within_reach-bessible",
       "stage": "site_land",
       "claim": "OK: Substation distance — Dorking Town 11kV (UKPN, 33.0 kV) is 0.34 km away.",
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/grid-and-primary-sites/records?where=within_distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-embedded-capacity-register/records?where=within_distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -3755,7 +3759,7 @@
       "id": "site_land-grid_headroom-bessible",
       "stage": "site_land",
       "claim": "OK: Grid headroom — Best two-way headroom in reach: 14.7 MW at Dorking Town 11kV, for a 8 MW battery.",
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/grid-and-primary-sites/records?where=within_distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-embedded-capacity-register/records?where=within_distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -3765,7 +3769,7 @@
       "id": "site_land-clear_of_overhead_lines-bessible",
       "stage": "site_land",
       "claim": "OK: Overhead lines — No overhead line of 22 kV or above crosses the title.",
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/grid-and-primary-sites/records?where=within_distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatial_coordinates%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-embedded-capacity-register/records?where=within_distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+10000.0m%29&order_by=distance%28spatialcoordinates_customer%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -3974,7 +3978,7 @@
     {
       "id": "sentiment-search-bessible",
       "stage": "sentiment",
-      "claim": "Tavily searched 4 queries [\"Dorking battery storage BESS planning application\"; \"Dorking Surrey solar farm battery storage residents concerns\"; \"Mole Valley council battery storage solar farm substation planning application\"; \"Surrey county council battery storage solar farm pylons grid objections\"]: 20 results, 10 UK or local pages read (4 Tavily credits); 4 pages had relevant paragraphs.",
+      "claim": "Tavily searched 4 queries [\"Dorking battery storage BESS planning application\"; \"Dorking Surrey solar farm battery storage residents concerns\"; \"Mole Valley council battery storage solar farm substation planning application\"; \"Surrey county council battery storage solar farm pylons grid objections\"]: 20 results, 10 UK or local pages read (cached Tavily responses fetched 2026-09-28); 4 pages had relevant paragraphs.",
       "source_url": "https://docs.tavily.com/documentation/api-reference/endpoint/search",
       "file_path": null,
       "image_path": null,
@@ -4054,7 +4058,7 @@
     {
       "id": "planning-summary-bessible",
       "stage": "planning",
-      "claim": "Local precedent exists within 1.73 km via the operational 6 MW Dorking Battery Energy Storage System (repd-6909), and jurisdiction over standalone battery storage schemes of any capacity remains with the local planning authority pursuant to the NSIP carve-out (policy-nsip-carveout). National policy under NPPF Chapter 14 and NPS EN-1 establishes the strategic need for electricity storage to support net zero and grid resilience, with PPG encouraging siting near grid infrastructure alongside appropriate acoustic and landscape mitigation (policy-nppf-14, policy-nps-en1, policy-ppg-renewables). In accordance with NFCC guidance, applications must include a Battery Safety Management Plan detailing thermal runaway mitigation, separation distances, and emergency access provisions (policy-nfcc-safety).",
+      "claim": "Local precedent for battery storage exists within 1.73 km, where the 6 MW Dorking Battery Energy Storage System is operational. Standalone battery storage in England is determined by the local planning authority under the 2020 NSIP carve-out, with strategic support established in NPPF Chapter 14 and NPS EN-1 recognising the national need for grid-balancing storage. Applications must provide a Battery Safety Management Plan in line with NFCC guidance and address PPG requirements for landscape mitigation, acoustic fencing, and environmental screening.",
       "source_url": "https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv",
       "file_path": null,
       "image_path": null,
@@ -4084,5 +4088,5 @@
   ],
   "gaps": [],
   "retries_left": 0,
-  "run_dir": "out/bessible-record-dorking-9b776262"
+  "run_dir": "out/bessible-record-dorking-f8784ec6"
 }

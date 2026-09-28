@@ -151,6 +151,7 @@ class AlternateOption(BaseModel):
     distance_km: float
     size_mw: float
     marginal: bool  # farther than 1 km: cable cost and losses make it a weak option
+    position: Position | None = None  # so a moved pin can be matched to its nearest substation
 
 
 class CableRoute(BaseModel):

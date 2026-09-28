@@ -1,5 +1,5 @@
 // Demo-only data: presets and a local simulation of the screening pipeline. The live workspace never imports this.
-import { AssessmentResult, CapacityOutput, SubstationOption, TraceEvent } from '../types';
+import { AssessmentResult, CapacityOutput, PositionCoords, SubstationOption, TraceEvent } from '../types';
 import { distanceKm } from '../footprint';
 
 export interface DemoPreset {
@@ -132,13 +132,67 @@ export function simulateScreening(
   };
 }
 
-/** A pin moved more than 0.9 km from where the run started falls to the first alternate substation. */
+const lonLat = (p: PositionCoords): [number, number] => [p.lon, p.lat];
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const SAME_SITE_KM = 0.2;
+
+/**
+ * A moved pin is served by the nearest substation with known coordinates (recorded runs), and the cable is re-drawn
+ * and re-priced to it. The previous serving substation becomes an alternate. Without coordinates (browser
+ * simulation), a pin moved more than 0.9 km from where the run started falls to the first alternate.
+ */
 export function simulateCapacityMove(
   origin: [number, number],
   pos: [number, number],
   current: CapacityOutput,
   flexible: boolean
 ): CapacityOutput | null {
+  const servingName = current.serving_substation ?? current.substation;
+  const located = (current.alternates ?? []).filter((a) => a.position);
+  if (current.substation_position && servingName && located.length) {
+    const away = (a: SubstationOption) => distanceKm(pos, lonLat(a.position!));
+    const closest = Math.min(...located.map(away));
+    if (closest >= distanceKm(pos, lonLat(current.substation_position))) return null;
+    // Substations on one site (e.g. a 33 kV grid and its 11 kV primary): take the one with the most headroom
+    const nearest = located
+      .filter((a) => away(a) <= closest + SAME_SITE_KM)
+      .reduce((best, a) => (a.effective_headroom_mw > best.effective_headroom_mw ? a : best));
+
+    const straight = away(nearest);
+    const detour = current.route?.detour_factor ?? 1.5;
+    const kv = Number(/(\d+)\s*kV/i.exec(nearest.name)?.[1]) || undefined;
+    const previous: SubstationOption = {
+      name: servingName,
+      distance_km: current.distance_km ?? 0,
+      import_headroom_mw: current.firm_mw ?? 0,
+      export_headroom_mw: current.ceiling_mw ?? 0,
+      effective_headroom_mw: current.firm_mw ?? 0,
+      voltage_kv: current.voltage_kv ?? current.connection_voltage_kv ?? 0,
+      is_marginal: (current.distance_km ?? 0) > 1,
+      position: current.substation_position,
+    };
+    const ceiling = nearest.export_headroom_mw ?? nearest.effective_headroom_mw;
+    return {
+      ...current,
+      substation: nearest.name,
+      serving_substation: nearest.name,
+      distance_km: round2(straight),
+      voltage_kv: kv,
+      connection_voltage_kv: kv,
+      firm_mw: nearest.effective_headroom_mw,
+      ceiling_mw: ceiling,
+      recommended_mw: flexible ? ceiling : nearest.effective_headroom_mw,
+      substation_position: nearest.position,
+      route: {
+        straight_km: round2(straight),
+        detour_factor: detour,
+        distance_km: round2(straight * detour),
+        path: [{ lon: pos[0], lat: pos[1] }, nearest.position!],
+      },
+      alternates: [previous, ...(current.alternates ?? []).filter((a) => a !== nearest)],
+    };
+  }
+
   const alt = current.alternates?.[0];
   if (!alt || distanceKm(origin, pos) <= 0.9) return null;
   return {

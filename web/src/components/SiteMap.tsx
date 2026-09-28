@@ -510,7 +510,9 @@ export default function SiteMap({
       const isServing = servingPosition && sub.name.toLowerCase() === servingSubstation?.name.toLowerCase();
       const subCoords: [number, number] = isServing
         ? [servingPosition.lon, servingPosition.lat]
-        : estimatedSubstationCoords(initialCenter, sub.distance_km, idx, ranked.length);
+        : sub.position
+          ? [sub.position.lon, sub.position.lat]
+          : estimatedSubstationCoords(initialCenter, sub.distance_km, idx, ranked.length);
 
       const el = document.createElement('div');
       el.className = 'substation-marker group cursor-pointer';

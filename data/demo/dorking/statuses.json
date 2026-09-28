@@ -74,7 +74,11 @@
             "substation": "Betchworth 11kV",
             "distance_km": 4.69,
             "size_mw": 2.2,
-            "marginal": true
+            "marginal": true,
+            "position": {
+              "lat": 51.24712046743657,
+              "lon": -0.2667762324332021
+            }
           }
         ],
         "tia_threshold_mw": 1,
@@ -152,7 +156,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -221,7 +225,11 @@
             "substation": "Betchworth 11kV",
             "distance_km": 4.69,
             "size_mw": 2.2,
-            "marginal": true
+            "marginal": true,
+            "position": {
+              "lat": 51.24712046743657,
+              "lon": -0.2667762324332021
+            }
           }
         ],
         "tia_threshold_mw": 1,
@@ -299,7 +307,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -34689,7 +34697,11 @@
             "substation": "Betchworth 11kV",
             "distance_km": 4.69,
             "size_mw": 2.2,
-            "marginal": true
+            "marginal": true,
+            "position": {
+              "lat": 51.24712046743657,
+              "lon": -0.2667762324332021
+            }
           }
         ],
         "tia_threshold_mw": 1,
@@ -34767,7 +34779,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -37772,7 +37784,11 @@
             "substation": "Betchworth 11kV",
             "distance_km": 4.69,
             "size_mw": 2.2,
-            "marginal": true
+            "marginal": true,
+            "position": {
+              "lat": 51.24712046743657,
+              "lon": -0.2667762324332021
+            }
           }
         ],
         "tia_threshold_mw": 1,
@@ -37850,7 +37866,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
@@ -40852,7 +40868,8 @@
             "substation": "Betchworth 11kV",
             "distance_km": 4.69,
             "size_mw": 2.2,
-            "marginal": true
+            "marginal": true,
+            "position": null
           }
         ],
         "tia_threshold_mw": 1,
@@ -40930,7 +40947,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 12:26 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 12:42 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
             "image_path": null,
