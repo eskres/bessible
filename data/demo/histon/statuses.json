@@ -14,188 +14,14 @@
     }
   },
   {
-    "stage": "title",
+    "stage": "capacity",
     "status": {
       "run_id": null,
       "status": "running",
       "stages": [
-        "title"
+        "capacity"
       ],
-      "capacity": {
-        "viable": true,
-        "message": null,
-        "out_of_area": false,
-        "substation": "Histon Grid 33kV",
-        "connection_voltage_kv": 33.0,
-        "firm_mw": 37.7,
-        "ceiling_mw": 50.0,
-        "recommended_mw": 37.7,
-        "binding_direction": "export",
-        "binding_season": null,
-        "distance_km": 0.22,
-        "substation_position": {
-          "lat": 52.24319473076745,
-          "lon": 0.1068681484881494
-        },
-        "route": {
-          "distance_km": 0.33,
-          "straight_km": 0.22,
-          "detour_factor": 1.5,
-          "path": [
-            {
-              "lat": 52.244997,
-              "lon": 0.108173
-            },
-            {
-              "lat": 52.24319473076745,
-              "lon": 0.1068681484881494
-            }
-          ]
-        },
-        "alternates": [
-          {
-            "substation": "Histon Primary 11kV",
-            "distance_km": 0.22,
-            "size_mw": 8.0,
-            "marginal": false,
-            "position": {
-              "lat": 52.24319473076745,
-              "lon": 0.1068681484881494
-            }
-          },
-          {
-            "substation": "Arbury Grid 33kV",
-            "distance_km": 1.93,
-            "size_mw": 35.1,
-            "marginal": true,
-            "position": {
-              "lat": 52.23504603095682,
-              "lon": 0.1314721300156129
-            }
-          },
-          {
-            "substation": "Arbury Grid 11kV",
-            "distance_km": 1.9,
-            "size_mw": 8.0,
-            "marginal": true,
-            "position": {
-              "lat": 52.23558693934513,
-              "lon": 0.1315263982659725
-            }
-          },
-          {
-            "substation": "Storeys Way Primary 11kV",
-            "distance_km": 3.52,
-            "size_mw": 5.0,
-            "marginal": true,
-            "position": {
-              "lat": 52.21340049754961,
-              "lon": 0.1055059655356688
-            }
-          }
-        ],
-        "tia_threshold_mw": 1,
-        "snapshot_date": "2026-09-22",
-        "competition": {
-          "offers_not_accepted_mw": 0.0,
-          "budget_estimates_mw": 164.8,
-          "enquiries_mw": 0.0,
-          "weighted_mw": 41.2,
-          "pressure": "high"
-        },
-        "export_ceiling_mw": 180.0,
-        "gsp": "Eaton Socon",
-        "artifacts": [
-          {
-            "id": "capacity-substation-bessible",
-            "stage": "capacity",
-            "claim": "Predicted point of connection: Histon Grid 33kV (33 kV), 0.22 km away. Nearest primary substation by distance (distribution-area polygons not in the snapshot) [ukpn-capacity-heatmap, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-headroom-bessible",
-            "stage": "capacity",
-            "claim": "Effective headroom at Histon Grid 33kV: import 57.9 MW, export 37.7 MW (available capacity minus accepted offers; export adds reverse power flow when minimum demand is negative) [ukpn-capacity-heatmap, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-range-bessible",
-            "stage": "capacity",
-            "claim": "Firm 37.7 MW, ceiling 50.0 MW, limited by export; 33 kV caps size at 50 MW. Ceiling = lower of import-side formula and Table 2a export ceiling (180 MW). No seasonal split in this dataset [ukpn-capacity-heatmap, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-context-bessible",
-            "stage": "capacity",
-            "claim": "Context only, not used in the verdict: RAG demand GREEN, generation GREEN; parent GSP Eaton Socon; TIA threshold 1 MW [ukpn-capacity-heatmap, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-competition-bessible",
-            "stage": "capacity",
-            "claim": "Connection competition at Histon Grid 33kV: 0.0 MW offers not accepted, 164.8 MW budget estimates, 0.0 MW enquiries; weighted total 41.2 MW (pressure: high). Context only; not subtracted from effective headroom [ukpn-ltds-table-6-interest-connections, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-ltds-table-6-interest-connections/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-caveat-bessible",
-            "stage": "capacity",
-            "claim": "Effective headroom subtracts the current accepted connection queue; this may be pessimistic if speculative projects leave the queue under proposed Ofgem reforms [ukpn-capacity-heatmap, snapshot 2026-09-22]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.9,
-            "model_used": "ukpn-snapshot"
-          },
-          {
-            "id": "capacity-live-check-bessible",
-            "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
-            "details": [],
-            "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
-            "file_path": null,
-            "image_path": null,
-            "confidence": 0.95,
-            "model_used": "live-ukpn-check"
-          },
-          {
-            "id": "capacity-cable-route-bessible",
-            "stage": "capacity",
-            "claim": "Cable run to Histon Grid 33kV: 0.22 km straight line, priced as 0.33 km (x1.5 detour factor for roads and field edges). The DNO designs the actual route",
-            "details": [],
-            "source_url": null,
-            "file_path": "data/assumptions/finance.json",
-            "image_path": null,
-            "confidence": 0.6,
-            "model_used": "straight-line"
-          }
-        ]
-      },
+      "capacity": null,
       "boundary": null,
       "position": {
         "lat": 52.244997,
@@ -364,7 +190,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "details": [],
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
@@ -33977,7 +33803,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "details": [],
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
@@ -39796,7 +39622,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "details": [],
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,
@@ -45612,7 +45438,7 @@
           {
             "id": "capacity-live-check-bessible",
             "stage": "capacity",
-            "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+            "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
             "details": [],
             "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
             "file_path": null,

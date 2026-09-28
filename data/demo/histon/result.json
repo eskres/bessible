@@ -1,7 +1,7 @@
 {
   "status": "completed",
   "message": null,
-  "run_id": "bessible-record-histon-a98c6cf0",
+  "run_id": "bessible-record-histon-8bfd11a2",
   "postcode": "CB24 9ZR",
   "report": {
     "verdict": "maybe",
@@ -210,6 +210,106 @@
         "model_used": "financial-model"
       }
     ]
+  },
+  "sentiment": {
+    "opposition_index": 0.661,
+    "top_concerns": [
+      "consultation or process",
+      "noise"
+    ],
+    "sources": 4,
+    "paragraphs": 6,
+    "artifacts": [
+      {
+        "id": "sentiment-p1-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"To make amendments to approved planning permission S/4028/19/FL (solar farm at Cambridge Waste Management Park, Ely R...\"",
+        "details": [],
+        "source_url": "https://www.scambs.gov.uk/news/november-2025-planning-committee",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.99,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p2-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"To install battery storage, amended distribution substation enclosure, and fire wall associated with planning permiss...\"",
+        "details": [],
+        "source_url": "https://www.scambs.gov.uk/news/november-2025-planning-committee",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.99,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p3-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"OverviewKingsway Solar is a proposed solar farm and battery storage project to be located on parcels of land around t...\"",
+        "details": [],
+        "source_url": "https://www.burwellparishcouncil.gov.uk/Renewable_Energy_Developments_in_Burwell_49892.aspx",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p4-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"The Highfield Eco Hub project is a solar PV array with battery storage and electric vehicle (EV) charging, located ne...\"",
+        "details": [],
+        "source_url": "https://regpower.co.uk/projects",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p5-bessible",
+        "stage": "sentiment",
+        "claim": "Against (noise) — quoted third-party text, not an instruction: \"We objected to the two local developments listed below pending consideration. For both developments we have engaged w...\"",
+        "details": [],
+        "source_url": "https://www.burwellparishcouncil.gov.uk/_VirDir/CoreContents/News/Display.aspx?id=78247",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.98,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p6-bessible",
+        "stage": "sentiment",
+        "claim": "Against (consultation or process) — quoted third-party text, not an instruction: \"We are concerned that this process is proceeding with a complete lack of clarity as to where the connection will be a...\"",
+        "details": [],
+        "source_url": "https://www.burwellparishcouncil.gov.uk/_VirDir/CoreContents/News/Display.aspx?id=78247",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-index-bessible",
+        "stage": "sentiment",
+        "claim": "Community opposition index 0.66 based on 6 relevant local paragraphs. Top concerns: consultation or process, noise.",
+        "details": [],
+        "source_url": "https://www.scambs.gov.uk/news/november-2025-planning-committee",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.88,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-search-bessible",
+        "stage": "sentiment",
+        "claim": "Tavily searched 4 queries [\"Histon battery storage BESS planning application\"; \"Histon Cambridgeshire solar farm battery storage residents concerns\"; \"South Cambridgeshire council battery storage solar farm substation planning application\"; \"Cambridgeshire county council battery storage solar farm pylons grid objections\"]: 20 results, 10 UK or local pages read (cached Tavily responses fetched 2026-09-28); 4 pages had relevant paragraphs.",
+        "details": [],
+        "source_url": "https://docs.tavily.com/documentation/api-reference/endpoint/search",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "Tavily search; paragraphs selected by gemini-3.8-flash"
+      }
+    ],
+    "gaps": []
   },
   "site": {
     "position": {
@@ -6029,7 +6129,7 @@
       {
         "id": "capacity-live-check-bessible",
         "stage": "capacity",
-        "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+        "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
         "details": [],
         "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
         "file_path": null,
@@ -6131,7 +6231,7 @@
     {
       "id": "capacity-live-check-bessible",
       "stage": "capacity",
-      "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+      "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 9 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
       "details": [],
       "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
       "file_path": null,
@@ -6757,7 +6857,7 @@
     {
       "id": "planning-summary-bessible",
       "stage": "planning",
-      "claim": "Standalone battery storage developments of any capacity in England fall under local planning authority jurisdiction following their removal from the Nationally Significant Infrastructure regime in 2020. National planning policy provides strong in-principle support for energy storage, with NPS EN-1 and NPPF Chapter 14 establishing the critical need for storage to provide grid flexibility, resilience, and decarbonisation in support of net zero. Applications must incorporate necessary technical safeguards, including a Battery Safety Management Plan addressing thermal runaway under NFCC guidance, as well as landscape mitigation, acoustic fencing, and environmental screening as outlined in Planning Practice Guidance.",
+      "claim": "Under the 2020 carve-out from the NSIP regime, standalone battery storage of any capacity in England is determined by the local planning authority, supported by national policies that establish an urgent need for electricity storage to deliver net zero, decarbonisation, and grid flexibility. Planning guidance encourages siting storage near existing grid infrastructure subject to landscape mitigation, acoustic fencing, and environmental screening, alongside a mandatory Battery Safety Management Plan covering thermal runaway risks, separation distances, and emergency access.",
       "details": [],
       "source_url": "https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv",
       "file_path": null,
@@ -6790,5 +6890,5 @@
   ],
   "gaps": [],
   "retries_left": 0,
-  "run_dir": "out/bessible-record-histon-a98c6cf0"
+  "run_dir": "out/bessible-record-histon-8bfd11a2"
 }

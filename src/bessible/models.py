@@ -597,6 +597,7 @@ class AssessmentResult(BaseModel):
     postcode: str | None = None  # the resolved location's postcode, for the report heading
     report: ReportOutput | None = None
     financial: FinancialOutput | None = None
+    sentiment: SentimentOutput | None = None  # so a keyless demo can re-assess a moved site
     site: ConfirmedSite | None = None  # the site the user confirmed; the report's MW and MWh come from it
     capacity: CapacityOutput | None = None
     artifacts: list[Artifact] = Field(default_factory=list)

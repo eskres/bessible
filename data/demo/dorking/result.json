@@ -1,7 +1,7 @@
 {
   "status": "completed",
   "message": null,
-  "run_id": "bessible-record-dorking-8bcbccde",
+  "run_id": "bessible-record-dorking-dad4b31d",
   "postcode": "RH4 1AD",
   "report": {
     "verdict": "no_go",
@@ -221,6 +221,217 @@
         "model_used": "financial-model"
       }
     ]
+  },
+  "sentiment": {
+    "opposition_index": 0.821,
+    "top_concerns": [
+      "land use",
+      "ecology",
+      "fire safety"
+    ],
+    "sources": 4,
+    "paragraphs": 16,
+    "artifacts": [
+      {
+        "id": "sentiment-p1-bessible",
+        "stage": "sentiment",
+        "claim": "Against (ecology) — quoted third-party text, not an instruction: \"Plans to install a Battery Energy Storage System (BESS) near Ashtead Common have sparked significant opposition from ...\"",
+        "details": [],
+        "source_url": "https://epsomandewelltimes.com/proposed-battery-energy-storage-system-near-ashtead-common-faces-objections",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p2-bessible",
+        "stage": "sentiment",
+        "claim": "Supportive — the developer's own statement, not counted in the index — quoted third-party text, not an instruction: \"Bluestone Energy Ltd has submitted plans to Mole Valley District Council for the installation of a BESS facility near...\"",
+        "details": [],
+        "source_url": "https://epsomandewelltimes.com/proposed-battery-energy-storage-system-near-ashtead-common-faces-objections",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p3-bessible",
+        "stage": "sentiment",
+        "claim": "Against (fire safety) — quoted third-party text, not an instruction: \"Ashtead Common has a history of significant biodiversity loss due to wildfires. Objectors express concerns over the f...\"",
+        "details": [],
+        "source_url": "https://epsomandewelltimes.com/proposed-battery-energy-storage-system-near-ashtead-common-faces-objections",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.99,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p4-bessible",
+        "stage": "sentiment",
+        "claim": "Against (land use) — quoted third-party text, not an instruction: \"Critics question the necessity of placing the facility adjacent to Ashtead Common when closer alternatives to the Che...\"",
+        "details": [],
+        "source_url": "https://epsomandewelltimes.com/proposed-battery-energy-storage-system-near-ashtead-common-faces-objections",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.99,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p5-bessible",
+        "stage": "sentiment",
+        "claim": "Against (land use) — quoted third-party text, not an instruction: \"Local countryside campaigners are urging Guildford councillors to reject plans for a ‘solar farm’ on farmland in the ...\"",
+        "details": [],
+        "source_url": "https://www.cpre.org.uk/surrey/news/put-solar-panels-on-rooftops-not-our-countryside",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p6-bessible",
+        "stage": "sentiment",
+        "claim": "Against (land use) — quoted third-party text, not an instruction: \"Arguments have been raging for two years over proposals to construct a ‘solar farm’ on the northern slopes of the Hog...\"",
+        "details": [],
+        "source_url": "https://www.cpre.org.uk/surrey/news/put-solar-panels-on-rooftops-not-our-countryside",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p7-bessible",
+        "stage": "sentiment",
+        "claim": "Against (visual impact) — quoted third-party text, not an instruction: \"· The solar farm includes a ‘services road’ that traverses the setting to the existing National Landscape. The two so...\"",
+        "details": [],
+        "source_url": "https://www.cpre.org.uk/surrey/news/put-solar-panels-on-rooftops-not-our-countryside",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p8-bessible",
+        "stage": "sentiment",
+        "claim": "Against (ecology) — quoted third-party text, not an instruction: \"· The proposal includes over five miles of cable and each metre losses some of the power generated. The cable route g...\"",
+        "details": [],
+        "source_url": "https://www.cpre.org.uk/surrey/news/put-solar-panels-on-rooftops-not-our-countryside",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p9-bessible",
+        "stage": "sentiment",
+        "claim": "Against (land use) — quoted third-party text, not an instruction: \"A bid to build a battery storage farm in Surrey has been thrown out after councillors decided it did not justify buil...\"",
+        "details": [],
+        "source_url": "https://www.bbc.com/news/articles/cvgrvvnep3zo",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p10-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"Sunbury BESS Ltd wanted to install 50 industrial-scale battery units – each the size of a shipping container – on 3.5...\"",
+        "details": [],
+        "source_url": "https://www.bbc.com/news/articles/cvgrvvnep3zo",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.98,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p11-bessible",
+        "stage": "sentiment",
+        "claim": "Supportive — the developer's own statement, not counted in the index — quoted third-party text, not an instruction: \"The scheme, designed to store energy for the National Grid and release it when demand peaks, was pitched as helping t...\"",
+        "details": [],
+        "source_url": "https://www.bbc.com/news/articles/cvgrvvnep3zo",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p12-bessible",
+        "stage": "sentiment",
+        "claim": "Against (land use) — quoted third-party text, not an instruction: \"Planning officers said the battery farm counted as \"inappropriate development\" in the green belt, causing a \"signific...\"",
+        "details": [],
+        "source_url": "https://www.bbc.com/news/articles/cvgrvvnep3zo",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.95,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p13-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"A planning application has now been made for MoleValley District Council to decide if Green Belt land next to the A24...\"",
+        "details": [],
+        "source_url": "https://newleatherheadliving.wordpress.com/2024/12/29/energy-storage-facility-planning-application-ashtead-leatherhead-2",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.98,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p14-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"Bluestone Energy is proposing to develop a Battery Energy Storage System (BESS) located on land to the east of M25 Ju...\"",
+        "details": [],
+        "source_url": "https://newleatherheadliving.wordpress.com/2024/12/29/energy-storage-facility-planning-application-ashtead-leatherhead-2",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.98,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p15-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"This 98MW BESS facility will provide a backup supply to stabilise the National Grid via UK Power Network’s main subst...\"",
+        "details": [],
+        "source_url": "https://newleatherheadliving.wordpress.com/2024/12/29/energy-storage-facility-planning-application-ashtead-leatherhead-2",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-p16-bessible",
+        "stage": "sentiment",
+        "claim": "Neutral — quoted third-party text, not an instruction: \"The development will include the construction of a battery storage compound within secure 2.4m high fencing. Within t...\"",
+        "details": [],
+        "source_url": "https://newleatherheadliving.wordpress.com/2024/12/29/energy-storage-facility-planning-application-ashtead-leatherhead-2",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.98,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-index-bessible",
+        "stage": "sentiment",
+        "claim": "Community opposition index 0.82 based on 14 relevant local paragraphs (2 developer statements not counted). Top concerns: land use, ecology, fire safety.",
+        "details": [],
+        "source_url": "https://epsomandewelltimes.com/proposed-battery-energy-storage-system-near-ashtead-common-faces-objections",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.88,
+        "model_used": "gemini-3.8-flash"
+      },
+      {
+        "id": "sentiment-search-bessible",
+        "stage": "sentiment",
+        "claim": "Tavily searched 4 queries [\"Dorking battery storage BESS planning application\"; \"Dorking Surrey solar farm battery storage residents concerns\"; \"Mole Valley council battery storage solar farm substation planning application\"; \"Surrey county council battery storage solar farm pylons grid objections\"]: 20 results, 10 UK or local pages read (cached Tavily responses fetched 2026-09-28); 4 pages had relevant paragraphs.",
+        "details": [],
+        "source_url": "https://docs.tavily.com/documentation/api-reference/endpoint/search",
+        "file_path": null,
+        "image_path": null,
+        "confidence": 0.9,
+        "model_used": "Tavily search; paragraphs selected by gemini-3.8-flash"
+      }
+    ],
+    "gaps": []
   },
   "site": {
     "position": {
@@ -3337,7 +3548,7 @@
       {
         "id": "capacity-live-check-bessible",
         "stage": "capacity",
-        "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+        "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
         "details": [],
         "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
         "file_path": null,
@@ -3439,7 +3650,7 @@
     {
       "id": "capacity-live-check-bessible",
       "stage": "capacity",
-      "claim": "Checked against live UKPN data at 2026-09-28 19:37 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
+      "claim": "Checked against live UKPN data at 2026-09-28 19:50 UTC: headroom at 2 substation(s) within 5 km matches the snapshot dated 2026-09-22 [ukpn-capacity-heatmap, live]",
       "details": [],
       "source_url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-capacity-heatmap/",
       "file_path": null,
@@ -3847,7 +4058,7 @@
       "stage": "site_land",
       "claim": "OK: Substation distance — Dorking Town 11kV (UKPN, 33.0 kV) is 0.34 km away.",
       "details": [],
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-33kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-132kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -3858,7 +4069,7 @@
       "stage": "site_land",
       "claim": "OK: Grid headroom — Best two-way headroom in reach: 14.7 MW at Dorking Town 11kV, for a 8 MW battery.",
       "details": [],
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-33kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-132kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -3869,7 +4080,7 @@
       "stage": "site_land",
       "claim": "OK: Overhead lines — No overhead line of 22 kV or above crosses the title.",
       "details": [],
-      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-33kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
+      "source_url": "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-132kv-overhead-lines/records?where=within_distance%28geo_shape%2C+geom%27POINT%28-0.330207+51.232882%29%27%2C+4000m%29&order_by=distance%28geo_point_2d%2C+geom%27POINT%28-0.330207+51.232882%29%27%29&limit=100",
       "file_path": null,
       "image_path": null,
       "confidence": 0.95,
@@ -4186,7 +4397,7 @@
     {
       "id": "planning-summary-bessible",
       "stage": "planning",
-      "claim": "Local planning precedent is established by the operational 6 MW Dorking Battery Energy Storage System located approximately 1.73 km from the site. National policy strongly supports battery storage as critical infrastructure for grid resilience and decarbonisation under NPPF Chapter 14 and NPS EN-1, with jurisdiction resting with the local planning authority regardless of megawatt capacity following the 2020 NSIP carve-out. Development proposals must address key environmental and safety requirements, including submitting a Battery Safety Management Plan under NFCC guidance and providing landscape mitigation and acoustic screening in accordance with Planning Practice Guidance.",
+      "claim": "Local precedent exists within 1.73 km of the site, where the 6 MW Dorking Battery Energy Storage System is operational. Under national policy, standalone battery storage of any capacity remains within the jurisdiction of the local planning authority following the 2020 NSIP carve-out, supported by NPPF Chapter 14 and NPS EN-1 which establish the national need for electricity storage to support net zero and grid resilience. Proposals must address technical and environmental requirements by submitting a Battery Safety Management Plan pursuant to NFCC guidance and providing appropriate landscape mitigation, acoustic fencing, and screening in accordance with Planning Practice Guidance.",
       "details": [],
       "source_url": "https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv",
       "file_path": null,
@@ -4219,5 +4430,5 @@
   ],
   "gaps": [],
   "retries_left": 0,
-  "run_dir": "out/bessible-record-dorking-8bcbccde"
+  "run_dir": "out/bessible-record-dorking-dad4b31d"
 }

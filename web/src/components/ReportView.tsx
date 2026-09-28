@@ -407,7 +407,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">Estimated Cable Route Distance</span>
               <span className="font-mono font-semibold text-foreground">
-                {grid_connection?.distance_km?.toFixed(2) || '0.65'} km
+                {(grid_connection?.distance_km ?? cap.route?.distance_km ?? cap.distance_km)?.toFixed(2) ?? '—'} km
               </span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">

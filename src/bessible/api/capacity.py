@@ -41,12 +41,18 @@ class CapacityCheckRequest(BaseModel):
         return data
 
 
+async def capacity_at(
+    position: Position, *, flexible: bool = False, requested_mw: float | None = None, run_id: str = "check"
+) -> CapacityOutput:
+    """The capacity proposal and cable run at a coordinate: the UKPN snapshot, else the other operators' live data."""
+    out = propose(position, get_snapshot(), run_id=run_id, flexible=flexible, requested_mw=requested_mw)
+    if out.out_of_area:
+        out = await propose_live(position, run_id, fallback=out)
+    return with_cable_route(position, out, run_id)
+
+
 @router.post("/capacity/check", response_model=CapacityOutput)
 async def check_capacity(req: CapacityCheckRequest) -> CapacityOutput:
     """Run direct grid capacity proposal for a coordinate under 1 second."""
-    snapshot = get_snapshot()
     mw = req.requested_mw if req.requested_mw is not None else req.battery_mw
-    out = propose(req.position, snapshot, run_id="check", flexible=req.flexible, requested_mw=mw)
-    if out.out_of_area:
-        out = await propose_live(req.position, "check", fallback=out)
-    return with_cable_route(req.position, out, "check")
+    return await capacity_at(req.position, flexible=req.flexible, requested_mw=mw)
