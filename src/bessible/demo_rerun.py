@@ -1,10 +1,10 @@
 """Re-assess a recorded demo run for the site the visitor confirmed, without a model key.
 
 A replay is recorded for one pin. When the visitor moves the pin, changes the capacity or clicks other polygons, the
-stages that read free public data and fixed rules run again for their site: title confirmation, grid, site and
-land, market, financial, planning (without its model-written summary) and synthesis. Local sentiment needs a model
-to read the news, so it keeps the recording, and a data gap says so. A moved pin gets the capacity check at the pin,
-the one its confirmation card showed.
+stages that read free public data and fixed rules run again for their site: capacity at the pin (the check its
+confirmation card showed), title confirmation, grid, site and land, market, financial, planning (without its
+model-written summary) and synthesis. Local sentiment keeps the recording: the pin cannot leave the screening
+radius, so the local news is the same, and reading it needs a model.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from bessible.models import (
     AssessmentResult,
     CapacityOutput,
     ConfirmedSite,
-    DataGap,
     FinancialInput,
     NodeInput,
     PlanningInput,
@@ -54,16 +53,13 @@ def changes_site(decision: SiteDecision, gate: RunStatus, request: AssessmentReq
 
 
 def _recorded_sentiment(run_id: str, recorded: AssessmentResult) -> SentimentOutput | None:
-    """The recording's sentiment, with a gap saying it was read for the original site."""
-    if recorded.sentiment is None:
-        return None
-    gap = DataGap(
-        stage="sentiment",
-        what="local news for the confirmed site",
-        reason="Recorded for the demo's original site: reading local news again needs a model key.",
-    )
-    events.emit(run_id, "sentiment", "Local sentiment recorded for the original site (reading news needs a model key)")
-    return recorded.sentiment.model_copy(update={"gaps": [*recorded.sentiment.gaps, gap]})
+    """The recording's sentiment: the pin stays within the screening radius, so the local news is the same."""
+    sentiment = recorded.sentiment
+    if sentiment is not None and sentiment.opposition_index is not None:
+        events.emit(
+            run_id, "sentiment", f"Local sentiment assessed (opposition index: {sentiment.opposition_index:.2f})"
+        )
+    return sentiment
 
 
 async def _planning(inp: PlanningInput) -> PlanningOutput:
