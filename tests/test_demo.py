@@ -188,7 +188,7 @@ def test_demo_replay_full_lifecycle(client: TestClient):
     res = result_resp.json()
     assert res["status"] == "completed"
     assert res["run_id"] == run_id
-    assert res["postcode"] == "RH4 1AD"
+    assert res["postcode"] == "RH4 1XF"  # recorded at a pin: the postcode at the pin, not the preset's
     recorded = json.loads(Path("data/demo/dorking/result.json").read_text(encoding="utf-8"))
     assert res["report"]["verdict"] == recorded["report"]["verdict"]
     assert len(res["report"]["findings"]) > 0
@@ -368,3 +368,18 @@ def test_changes_site_only_for_a_different_choice():
     assert changes(capacity_mw=20)
     assert changes(flexible_connection=True)
     assert changes(title_ids=["39165193"])
+
+
+def test_site_data_for_a_recorded_pin_is_served_without_a_fetch(monkeypatch):
+    """Each preset's map layers are saved with its recording, so the demo map needs no cold `collate`."""
+    import bessible.location  # ruff: ignore[import-outside-top-level]
+
+    async def no_fetch(*_args, **_kwargs):
+        raise AssertionError("collate called for a recorded pin")
+
+    monkeypatch.setattr(bessible.location, "collate", no_fetch)
+    for slug in ["histon", "dorking"]:
+        pin = json.loads(Path(f"data/demo/{slug}/request.json").read_text(encoding="utf-8"))["position"]
+        resp = TestClient(app).get("/site-data", params=pin)
+        assert resp.status_code == 200
+        assert resp.json()["deterministic"]["grid"]["substations"]

@@ -44,7 +44,7 @@ interface DemoWorkspaceProps {
  * needs a session.
  */
 export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: DemoWorkspaceProps) {
-  const run = useSiteRun(checkDemoCapacity);
+  const run = useSiteRun(checkDemoCapacity, DEFAULT_PRESET.coords); // the map opens on the first preset, not London
   const { siteData, siteDataLoading } = useSiteData(run.currentPosition);
   const [postcode, setPostcode] = useState(DEFAULT_PRESET.postcode);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -190,6 +190,7 @@ export default function DemoWorkspace({ preview, onExit, onSignIn, signingIn }: 
           siteDataLoading={siteDataLoading}
           onConfirm={handleConfirm}
           onReset={restart}
+          mapZoom={findPreset(postcode)?.zoom}
           locationBar={
             <>
               <div className="flex flex-col md:flex-row gap-3">

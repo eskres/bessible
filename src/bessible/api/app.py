@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import json
 import logging
 import math
 
@@ -14,6 +16,7 @@ from fastapi.responses import JSONResponse
 from bessible.api import capacity, demo, events, me, runs
 from bessible.config import settings
 from bessible.keystore import KeyStoreError
+from bessible.recorder import SITE_DATA_FILE
 
 if not settings.auth_enabled:
     logging.getLogger(__name__).warning("AUTH_ENABLED=false: sign-in is off, every caller is the local user")
@@ -117,12 +120,24 @@ _SITE_DATA_CACHE: dict[tuple[float, float], dict[str, object]] = {}
 SITE_DATA_CACHE_MAX = 256  # the route is public, so the cache is bounded
 
 
+@functools.cache
+def _recorded_site_data() -> dict[tuple[float, float], dict[str, object]]:
+    """Site data saved with each demo recording, keyed like the cache: a preset's map layers load without a fetch."""
+    recorded: dict[tuple[float, float], dict[str, object]] = {}
+    for path in sorted((settings.data_dir / "demo").glob(f"*/{SITE_DATA_FILE}")):
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        recorded[round(saved["lat"], 5), round(saved["lon"], 5)] = saved["data"]
+    return recorded
+
+
 @app.get("/site-data", tags=["data"])  # free public data: open to the keyless demo
 async def get_site_data(lat: float, lon: float) -> Response:
     """Everything `location.collate` knows about a coordinate (the LocationData object), for the map layers."""
     from bessible.location import Coordinates, collate  # ruff: ignore[import-outside-top-level]
 
     key = (round(lat, 5), round(lon, 5))
+    if recorded := _recorded_site_data().get(key):
+        return JSONResponse(content=recorded)
     if key not in _SITE_DATA_CACHE:
         location = await collate(Coordinates(lat=lat, lon=lon))
         if len(_SITE_DATA_CACHE) >= SITE_DATA_CACHE_MAX:

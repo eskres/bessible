@@ -48,6 +48,7 @@ FLOOR_MW = 5.0
 SEARCH_RADIUS_KM = 5.0  # serving substation and alternates must be within this
 MARGINAL_KM = 1.0
 MAX_ALTERNATES = 4
+SAME_SITE_KM = 0.1  # UKPN lists each busbar voltage of a site as its own row; rows this close are one site
 LOW_VOLTAGE_CAP_MW = 8.0  # 22 kV and below
 HIGH_VOLTAGE_CAP_MW = 50.0  # 33 kV and 66 kV
 GRID_VOLTAGE_CAP_MW = 100.0  # 132 kV
@@ -169,17 +170,39 @@ def _artifact(
     )
 
 
+def _same_site(a: CapacityHeatmapSite, b: CapacityHeatmapSite) -> bool:
+    """True when two rows are busbars of one site (UKPN gives "Histon Grid 33kV" and "Histon Primary 11kV" one spot)."""
+    if a.latitude is None or a.longitude is None or b.latitude is None or b.longitude is None:
+        return False
+    return haversine_km(Position(lat=a.latitude, lon=a.longitude), b.latitude, b.longitude) <= SAME_SITE_KM
+
+
 def _alternates(
     nearby: list[tuple[float, CapacityHeatmapSite]],
     snapshot: Snapshot,
     *,
     flexible: bool,
 ) -> list[AlternateOption]:
-    """Up to four other primaries within range, best distance-weighted size first. Far ones are flagged, not hidden."""
+    """Up to four other sites within range, best distance-weighted size first. Far ones are flagged, not hidden.
+
+    One option per site: the largest of its busbars. A busbar at the serving site is listed only if it beats the
+    serving connection, so a smaller voltage on the same spot never shows up as a separate choice.
+    """
+    serving = nearby[0][1]
+    serving_mw = Headroom(serving, flexible=flexible, export_ceiling_mw=export_ceiling(serving, snapshot)).size_mw
+    sites: list[tuple[float, Headroom]] = []
+    for d, row in nearby[1:]:
+        alt = Headroom(row, flexible=flexible, export_ceiling_mw=export_ceiling(row, snapshot))
+        if _same_site(row, serving) and alt.size_mw <= serving_mw:
+            continue
+        i = next((i for i, (_, h) in enumerate(sites) if _same_site(row, h.row)), None)
+        if i is None and len(sites) < MAX_ALTERNATES:
+            sites.append((d, alt))
+        elif i is not None and alt.size_mw > sites[i][1].size_mw:
+            sites[i] = (d, alt)
     scored: list[tuple[float, AlternateOption]] = []
-    for d, row in nearby[1 : MAX_ALTERNATES + 1]:
-        alt_exp = export_ceiling(row, snapshot)
-        alt = Headroom(row, flexible=flexible, export_ceiling_mw=alt_exp)
+    for d, alt in sites:
+        row = alt.row
         option = AlternateOption(
             substation=row.name or "",
             distance_km=round(d, 2),

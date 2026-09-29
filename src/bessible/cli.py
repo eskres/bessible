@@ -321,8 +321,9 @@ async def cmd_result(args: argparse.Namespace) -> None:
 
 async def cmd_record(args: argparse.Namespace) -> None:
     """Run a demo preset live, auto-confirm the proposal, and save the run into `data/demo/<slug>`."""
+    pin = Position(lat=args.lat, lon=args.lon) if args.lat is not None and args.lon is not None else None
     request = AssessmentRequest(
-        postcode=args.postcode, flexible_connection=args.flexible, credentials=_sealed_developer_key()
+        postcode=args.postcode, position=pin, flexible_connection=args.flexible, credentials=_sealed_developer_key()
     )
     out = await record_live_run(request, slug=args.slug, client=await _get_client())
     print(f"Recorded {args.postcode} into {out}")  # ruff: ignore[print]
@@ -358,6 +359,8 @@ def build_parser() -> argparse.ArgumentParser:
     record_p.add_argument("slug", help="Folder under data/demo (e.g. dorking)")
     record_p.add_argument("postcode", help="Demo preset postcode (e.g. 'RH4 1AD')")
     record_p.add_argument("--flexible", action="store_true", help="Allow a flexible grid connection")
+    record_p.add_argument("--lat", type=float, help="Pin latitude (with --lon), instead of the postcode centre")
+    record_p.add_argument("--lon", type=float, help="Pin longitude (with --lat)")
 
     return parser
 

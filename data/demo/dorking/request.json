@@ -1,7 +1,10 @@
 {
   "property_url": null,
   "postcode": "RH4 1AD",
-  "position": null,
+  "position": {
+    "lat": 51.23497,
+    "lon": -0.34481
+  },
   "battery_mw": null,
   "budget_gbp": null,
   "flexible_connection": false,

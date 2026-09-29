@@ -1,24 +1,24 @@
-{"id": 1, "offset_s": 0.0, "t": "2026-09-28T19:50:22.845255+00:00", "stage": "location", "msg": "Resolving site location and postcode"}
-{"id": 2, "offset_s": 0.01, "t": "2026-09-28T19:50:22.852660+00:00", "stage": "location", "msg": "Location resolved: CB24 9ZR (52.2450, 0.1082)"}
-{"id": 3, "offset_s": 0.01, "t": "2026-09-28T19:50:22.859041+00:00", "stage": "capacity", "msg": "Evaluating grid capacity and primary substations"}
-{"id": 4, "offset_s": 0.39, "t": "2026-09-28T19:50:23.231304+00:00", "stage": "capacity", "msg": "Grid capacity evaluated: 37.7 MW at Histon Grid 33kV (viable)"}
-{"id": 5, "offset_s": 0.4, "t": "2026-09-28T19:50:23.244196+00:00", "stage": "title", "msg": "Searching HM Land Registry INSPIRE polygons around the site"}
-{"id": 6, "offset_s": 0.54, "t": "2026-09-28T19:50:23.388379+00:00", "stage": "title", "msg": "427 INSPIRE polygons found, pin on polygon 39165193 (1,773 m\u00b2)"}
-{"id": 7, "offset_s": 0.65, "t": "2026-09-28T19:50:23.497009+00:00", "stage": "title", "msg": "Measuring the BESS footprint against the INSPIRE polygons"}
-{"id": 8, "offset_s": 0.71, "t": "2026-09-28T19:50:23.552014+00:00", "stage": "title", "msg": "Confirmed site: 20 polygon(s), 10.58 ha (footprint on 39174767 14%, 53926009 13%, 39156756 12%, 39173750 11%, 39160413 10%, 63054396 7%, 39172036 6%, 39165193 5%, 53149890 2%, 39161490 2%, 39174973 2%, 53947487 1%, 39175500 1%, 39172139 1%, 54643284 1%, 59939018 1%, 61779173 1%, 42182118 1%, 39154978 1%, 53947536 1%)"}
-{"id": 9, "offset_s": 0.72, "t": "2026-09-28T19:50:23.566403+00:00", "stage": "grid", "msg": "Assessing grid connection queue and timescales"}
-{"id": 10, "offset_s": 0.73, "t": "2026-09-28T19:50:23.574869+00:00", "stage": "grid", "msg": "Grid connection assessment complete (Gate 2 position: 33)"}
-{"id": 11, "offset_s": 0.73, "t": "2026-09-28T19:50:23.575732+00:00", "stage": "site_land", "msg": "Analyzing environmental constraints and land classification"}
-{"id": 12, "offset_s": 0.78, "t": "2026-09-28T19:50:23.627519+00:00", "stage": "market", "msg": "Modeling wholesale, capacity market, and ancillary service revenues"}
-{"id": 13, "offset_s": 0.78, "t": "2026-09-28T19:50:23.628075+00:00", "stage": "market", "msg": "Market revenue projected: \u00a3116,512/MW/yr"}
-{"id": 14, "offset_s": 0.79, "t": "2026-09-28T19:50:23.632402+00:00", "stage": "sentiment", "msg": "Analyzing local community sentiment and planning records"}
-{"id": 15, "offset_s": 0.89, "t": "2026-09-28T19:50:23.730477+00:00", "stage": "sentiment", "msg": "Searching local news and planning coverage for Histon (South Cambridgeshire)"}
-{"id": 16, "offset_s": 0.93, "t": "2026-09-28T19:50:23.778112+00:00", "stage": "sentiment", "msg": "Kept 4 sources; analyzing planning sentiment"}
-{"id": 17, "offset_s": 0.94, "t": "2026-09-28T19:50:23.782120+00:00", "stage": "sentiment", "msg": "Local sentiment assessed (opposition index: 0.66)"}
-{"id": 18, "offset_s": 3.4, "t": "2026-09-28T19:50:26.247442+00:00", "stage": "site_land", "msg": "Site land constraints assessed: 4 constraints noted"}
-{"id": 19, "offset_s": 3.41, "t": "2026-09-28T19:50:26.258490+00:00", "stage": "financial", "msg": "Simulating 25-year financial models across 2h, 4h, and 8h durations"}
-{"id": 20, "offset_s": 3.42, "t": "2026-09-28T19:50:26.261011+00:00", "stage": "financial", "msg": "Financial returns modeled (recommended: 4h duration)"}
-{"id": 21, "offset_s": 3.42, "t": "2026-09-28T19:50:26.261666+00:00", "stage": "planning", "msg": "Evaluating consenting routes and planning risk profile"}
-{"id": 22, "offset_s": 6.67, "t": "2026-09-28T19:50:29.511348+00:00", "stage": "planning", "msg": "Consenting route determined: Local planning authority consent (Town and Country Planning Act 1990) - South Cambridgeshire LPA"}
-{"id": 23, "offset_s": 6.68, "t": "2026-09-28T19:50:29.526973+00:00", "stage": "synthesis", "msg": "Synthesising final recommendation and generating assessment report"}
-{"id": 24, "offset_s": 6.68, "t": "2026-09-28T19:50:29.529130+00:00", "stage": "synthesis", "msg": "Assessment complete: overall verdict MAYBE"}
+{"id": 1, "offset_s": 0.0, "t": "2026-09-29T11:03:13.727272+00:00", "stage": "location", "msg": "Resolving site location and postcode"}
+{"id": 2, "offset_s": 0.25, "t": "2026-09-29T11:03:13.976676+00:00", "stage": "location", "msg": "Location resolved: CB24 9AT (52.2479, 0.0961)"}
+{"id": 3, "offset_s": 0.27, "t": "2026-09-29T11:03:13.994599+00:00", "stage": "capacity", "msg": "Evaluating grid capacity and primary substations"}
+{"id": 4, "offset_s": 1.66, "t": "2026-09-29T11:03:15.389855+00:00", "stage": "capacity", "msg": "Grid capacity evaluated: 37.7 MW at Histon Grid 33kV (viable)"}
+{"id": 5, "offset_s": 1.67, "t": "2026-09-29T11:03:15.399084+00:00", "stage": "title", "msg": "Searching HM Land Registry INSPIRE polygons around the site"}
+{"id": 6, "offset_s": 1.92, "t": "2026-09-29T11:03:15.645275+00:00", "stage": "title", "msg": "7 INSPIRE polygons found, pin on polygon 53108427 (481,344 m\u00b2)"}
+{"id": 7, "offset_s": 2.03, "t": "2026-09-29T11:03:15.756819+00:00", "stage": "title", "msg": "Measuring the BESS footprint against the INSPIRE polygons"}
+{"id": 8, "offset_s": 2.04, "t": "2026-09-29T11:03:15.766055+00:00", "stage": "title", "msg": "Confirmed site: 1 polygon(s), 48.13 ha (footprint on 53108427 100%)"}
+{"id": 9, "offset_s": 2.05, "t": "2026-09-29T11:03:15.777633+00:00", "stage": "grid", "msg": "Assessing grid connection queue and timescales"}
+{"id": 10, "offset_s": 2.06, "t": "2026-09-29T11:03:15.789944+00:00", "stage": "grid", "msg": "Grid connection assessment complete (Gate 2 position: 33)"}
+{"id": 11, "offset_s": 2.06, "t": "2026-09-29T11:03:15.790482+00:00", "stage": "site_land", "msg": "Analyzing environmental constraints and land classification"}
+{"id": 12, "offset_s": 2.07, "t": "2026-09-29T11:03:15.800273+00:00", "stage": "market", "msg": "Modeling wholesale, capacity market, and ancillary service revenues"}
+{"id": 13, "offset_s": 2.07, "t": "2026-09-29T11:03:15.801549+00:00", "stage": "market", "msg": "Market revenue projected: \u00a3116,801/MW/yr"}
+{"id": 14, "offset_s": 2.08, "t": "2026-09-29T11:03:15.802314+00:00", "stage": "sentiment", "msg": "Analyzing local community sentiment and planning records"}
+{"id": 15, "offset_s": 2.32, "t": "2026-09-29T11:03:16.046127+00:00", "stage": "sentiment", "msg": "Searching local news and planning coverage for Histon (South Cambridgeshire)"}
+{"id": 16, "offset_s": 5.7, "t": "2026-09-29T11:03:19.431597+00:00", "stage": "site_land", "msg": "Site land constraints assessed: 4 constraints noted"}
+{"id": 17, "offset_s": 29.99, "t": "2026-09-29T11:03:43.715269+00:00", "stage": "sentiment", "msg": "Kept 4 sources; analyzing planning sentiment"}
+{"id": 18, "offset_s": 32.8, "t": "2026-09-29T11:03:46.523625+00:00", "stage": "sentiment", "msg": "Local sentiment assessed (opposition index: 0.66)"}
+{"id": 19, "offset_s": 32.81, "t": "2026-09-29T11:03:46.538127+00:00", "stage": "financial", "msg": "Simulating 25-year financial models across 2h, 4h, and 8h durations"}
+{"id": 20, "offset_s": 32.81, "t": "2026-09-29T11:03:46.541528+00:00", "stage": "financial", "msg": "Financial returns modeled (recommended: 4h duration)"}
+{"id": 21, "offset_s": 32.82, "t": "2026-09-29T11:03:46.542343+00:00", "stage": "planning", "msg": "Evaluating consenting routes and planning risk profile"}
+{"id": 22, "offset_s": 37.38, "t": "2026-09-29T11:03:51.105162+00:00", "stage": "planning", "msg": "Consenting route determined: Local planning authority consent (Town and Country Planning Act 1990) - South Cambridgeshire LPA"}
+{"id": 23, "offset_s": 37.4, "t": "2026-09-29T11:03:51.125900+00:00", "stage": "synthesis", "msg": "Synthesising final recommendation and generating assessment report"}
+{"id": 24, "offset_s": 37.4, "t": "2026-09-29T11:03:51.127521+00:00", "stage": "synthesis", "msg": "Assessment complete: overall verdict MAYBE"}

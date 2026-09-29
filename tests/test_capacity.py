@@ -137,6 +137,24 @@ def test_alternates_ranked_and_far_ones_flagged_marginal():
     assert out.alternates[0].distance_km == pytest.approx(3.0, abs=0.1)
 
 
+def test_alternates_list_one_option_per_site():
+    grid = row("Histon Grid 33kV", lat=51.501)
+    primary = row("Histon Primary 11kV", lat=51.501, voltage=11.0)  # same spot, smaller busbar
+    arbury_33 = row("Arbury Grid 33kV", lat=51.51)
+    arbury_11 = row("Arbury Grid 11kV", lat=51.5095, voltage=11.0)  # ~55 m nearer, smaller
+    out = run(grid, primary, arbury_11, arbury_33)
+    assert out.substation == "Histon Grid 33kV"
+    assert [a.substation for a in out.alternates] == ["Arbury Grid 33kV"]
+
+
+def test_larger_busbar_at_serving_site_stays_an_alternate():
+    primary = row("Histon Primary 11kV", voltage=11.0)
+    grid = row("Histon Grid 33kV")
+    out = run(primary, grid)
+    assert out.substation == "Histon Primary 11kV"
+    assert [a.substation for a in out.alternates] == ["Histon Grid 33kV"]
+
+
 def test_serving_is_nearest_even_if_alternate_has_more_headroom():
     out = run(
         row("Near 33kV", demandavailablecapacity=6.0),

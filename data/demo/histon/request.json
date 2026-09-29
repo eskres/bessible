@@ -1,7 +1,10 @@
 {
   "property_url": null,
   "postcode": "CB24 9ZR",
-  "position": null,
+  "position": {
+    "lat": 52.24794,
+    "lon": 0.09612
+  },
   "battery_mw": null,
   "budget_gbp": null,
   "flexible_connection": false,
