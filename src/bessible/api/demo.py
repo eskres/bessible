@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/demo/runs", tags=["demo"])
 
 PRE_GATE_STAGES = {"location", "capacity", "title"}
+PRE_GATE_SPEEDUP = 2.0  # the map waits on these stages, so they replay faster than recorded
 RERUN_POLL_S = 0.25  # how often a re-run's trace file is read
 EARLY_END_STATUSES = ("out_of_area", "not_viable")
 
@@ -156,7 +157,7 @@ class DemoReplaySession:
             prev_offset = 0.0
             for ev in pre_gate:
                 curr_offset = float(ev.get("offset_s", 0.0))
-                dt = max(0.0, curr_offset - prev_offset) * self.pacing_multiplier
+                dt = max(0.0, curr_offset - prev_offset) * self.pacing_multiplier / PRE_GATE_SPEEDUP
                 if dt > 0:
                     await asyncio.sleep(min(dt, 2.5))
                 prev_offset = curr_offset

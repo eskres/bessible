@@ -30,6 +30,8 @@ interface RunViewProps {
   freePlacement?: boolean;
   /** Called when the user drags or clicks the pin to a new place. */
   onPinPlaced?: (pos: [number, number]) => void;
+  /** Map zoom for this site; the map's default when unset. */
+  mapZoom?: number;
 }
 
 /** Location bar and status notices, then the report (when finished) or the map, capacity controls and live trace. */
@@ -44,6 +46,7 @@ export default function RunView({
   siteDataLoading,
   freePlacement = false,
   onPinPlaced,
+  mapZoom,
 }: RunViewProps) {
   const { runStatus, capacityProposal, capacityLoading } = run;
   // The map's substation list is the alternates; the serving substation comes separately
@@ -185,6 +188,7 @@ export default function RunView({
         siteMap={
           <SiteMap
             initialCenter={run.initialCenter}
+            zoom={mapZoom}
             currentPosition={confirmedPosition ?? run.currentPosition}
             onPositionChange={() => {}}
             capacityMw={run.result.site?.capacity_mw ?? run.selectedCapacityMw}
@@ -219,6 +223,7 @@ export default function RunView({
 
         <SiteMap
           initialCenter={run.initialCenter}
+          zoom={mapZoom}
           currentPosition={run.currentPosition}
           onPositionChange={(pos) => {
             onPinPlaced?.(pos);

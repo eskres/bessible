@@ -8,6 +8,8 @@ import { getRunResult, getRunStatus, retryStages, sendDecision, subscribeEvents 
 
 /** Statuses a run never leaves: polling and streaming stop here. */
 const FINAL_STATUSES = ['completed', 'not_viable', 'failed', 'rejected', 'out_of_area'];
+const POLL_MS = 2000;
+const PROPOSAL_POLL_MS = 500; // before the site proposal, which the map waits on
 
 /** Capacity at a new pin position, or null to keep the current proposal. */
 export type CapacityChecker = (
@@ -17,13 +19,15 @@ export type CapacityChecker = (
 ) => Promise<CapacityOutput | null>;
 
 export const DEFAULT_CENTER: [number, number] = [-0.1132, 51.5014];
+/** Capacity before a proposal arrives: the compound starts as a small square and grows to the proposed size. */
+const START_MW = 0;
 
 /**
  * State for one site assessment: map pin, capacity proposal, trace and result.
  * `track(runId)` follows a backend run (live or recorded replay) by polling its status and streaming its trace;
  * `simulate(runId)` marks a run the caller drives itself. Mode-specific behaviour comes in through `checkCapacityAt`.
  */
-export function useSiteRun(checkCapacityAt: CapacityChecker) {
+export function useSiteRun(checkCapacityAt: CapacityChecker, startCenter: [number, number] = DEFAULT_CENTER) {
   const [runId, setRunId] = useState<string | null>(null);
   const [tracked, setTracked] = useState(false);
   const [runStatus, setRunStatus] = useState<RunStatus | null>(null);
@@ -34,11 +38,11 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
-  const [initialCenter, setInitialCenter] = useState<[number, number]>(DEFAULT_CENTER);
-  const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_CENTER);
+  const [initialCenter, setInitialCenter] = useState<[number, number]>(startCenter);
+  const [currentPosition, setCurrentPosition] = useState<[number, number]>(startCenter);
   const [capacityProposal, setCapacityProposal] = useState<CapacityOutput | null>(null);
   const [capacityLoading, setCapacityLoading] = useState(false);
-  const [selectedCapacityMw, setSelectedCapacityMw] = useState(10);
+  const [selectedCapacityMw, setSelectedCapacityMw] = useState(START_MW);
   const [flexibleConnection, setFlexibleConnection] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [substationChangeNotice, setSubstationChangeNotice] = useState<string | null>(null);
@@ -97,6 +101,7 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
     // Keep the previous run's capacity card mounted (SiteControls shows it dimmed, under a
     // loading overlay) instead of unmounting it while the new run's data is in flight.
     setCapacityLoading(true);
+    setSelectedCapacityMw(START_MW);
     positionedRunRef.current = null;
     proposedRunRef.current = null;
     pendingPinRef.current = pin ?? null;
@@ -260,7 +265,7 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
       return;
     }
 
-    const interval = setInterval(async () => {
+    const tick = async () => {
       try {
         const status = await getRunStatus(runId);
         if (activeRunRef.current !== runId) return;
@@ -298,7 +303,11 @@ export function useSiteRun(checkCapacityAt: CapacityChecker) {
       } catch {
         // transient: try again on the next tick
       }
-    }, 2000);
+    };
+    // Until the site proposal arrives the map is waiting on it: check at once, then often
+    const awaitingProposal = !runStatus?.status || (runStatus.status === 'running' && proposedRunRef.current !== runId);
+    if (awaitingProposal) void tick();
+    const interval = setInterval(tick, awaitingProposal ? PROPOSAL_POLL_MS : POLL_MS);
 
     return () => clearInterval(interval);
   }, [runId, tracked, runStatus?.status]);

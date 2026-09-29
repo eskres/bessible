@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import { CableRoute, PositionCoords, SiteData, SubstationOption, TitleParcel } from '../lib/types';
+import { CableRoute, GridSubstation, PositionCoords, SiteData, SubstationOption, TitleParcel } from '../lib/types';
 import type { RuntimeConfig } from '../lib/auth';
 import {
   generateFootprintPolygon,
@@ -23,6 +23,8 @@ function GoogleLayersIcon({ className }: { className?: string }) {
 
 interface SiteMapProps {
   initialCenter?: [number, number]; // [lng, lat]
+  /** Zoom when the map opens on a site; smaller sites look better closer in. */
+  zoom?: number;
   currentPosition: [number, number]; // [lng, lat]
   onPositionChange: (pos: [number, number]) => void;
   /** The map pulled the pin back inside the screening radius (no capacity re-check needed). */
@@ -66,8 +68,8 @@ const PARCEL_CANDIDATE_STROKE = '#e11d48';
 
 type MapsError = 'missing' | 'rejected' | 'failed';
 
-// Google's 256 px tiles put its zoom one level below MapLibre's for the same scale (MapLibre used 14.5)
-const MAP_ZOOM = 15.5;
+// Start one zoom click out from 15.5, so the pin shows with the nearest substations around it
+const MAP_ZOOM = 14.5;
 const FOOTPRINT_STROKE = '#059669';
 const FOOTPRINT_WEIGHT = 2; // outline px; the hatch stripes are a third lighter
 const HATCH_WEIGHT = FOOTPRINT_WEIGHT * (2 / 3);
@@ -159,6 +161,7 @@ const CABLE_COLOR = '#FBEC5D';
 /** Substations closer than this share one map point (a grid substation and its primary on one site). */
 const SAME_SITE_KM = 0.2;
 const STACK_OFFSET_PX = 30;
+const MAX_SUBSTATION_SITES = 4; // nearest sites drawn from live site data
 const CABLE_CASING = '#1f2937';
 const CABLE_OPACITY = 1;
 const POWER_LINE = '#D32F2F';
@@ -205,6 +208,7 @@ function footprintBounds(center: [number, number], capacityMw: number): Bounds {
 
 export default function SiteMap({
   initialCenter = [-0.1132, 51.5014],
+  zoom = MAP_ZOOM,
   currentPosition,
   onPositionChange,
   onPositionClamped,
@@ -272,7 +276,7 @@ export default function SiteMap({
         if (cancelled) return;
         const map = new google.maps.Map(container, {
           center: toLatLng(currentPosition),
-          zoom: MAP_ZOOM,
+          zoom,
           mapId: config?.mapId || 'DEMO_MAP_ID',
           mapTypeId: 'roadmap',
           tilt: 0,
@@ -319,7 +323,7 @@ export default function SiteMap({
   useEffect(() => {
     if (mapRef.current && mapLoaded) {
       mapRef.current.panTo(toLatLng(currentPosition));
-      mapRef.current.setZoom(MAP_ZOOM);
+      mapRef.current.setZoom(zoom);
     }
   }, [initialCenter]);
 
@@ -733,9 +737,24 @@ export default function SiteMap({
       );
     });
 
-    grid.substations.slice(0, 12).forEach((sub) => {
+    // UKPN lists each busbar voltage of a substation as its own row and OpenStreetMap adds its own: one marker per
+    // site, labelled with the serving substation if it is there, else the busbar with the most two-way headroom
+    const twoWayMw = (sub: GridSubstation) =>
+      sub.headroom ? Math.max(0, Math.min(sub.headroom.generation_mw ?? 0, sub.headroom.demand ?? 0)) : -1;
+    const servingName = servingSubstation?.name.toLowerCase();
+    const rank = (sub: GridSubstation) => (sub.name.toLowerCase() === servingName ? Infinity : twoWayMw(sub));
+    const sites: GridSubstation[][] = [];
+    for (const sub of grid.substations) {
+      const lngLat: [number, number] = [sub.coords.lon, sub.coords.lat];
+      const site = sites.find(([first]) => distanceKm([first.coords.lon, first.coords.lat], lngLat) < SAME_SITE_KM);
+      if (site) site.push(sub);
+      else sites.push([sub]);
+    }
+    sites.slice(0, MAX_SUBSTATION_SITES).forEach((members) => {
+      const sub = members.reduce((best, m) => (rank(m) > rank(best) ? m : best));
+      const others = members.filter((m) => m !== sub).map((m) => esc(m.name));
       const h = sub.headroom;
-      const twoWay = h ? Math.max(0, Math.min(h.generation_mw ?? 0, h.demand ?? 0)) : null;
+      const twoWay = h ? twoWayMw(sub) : null;
       const tone =
         twoWay === null
           ? 'bg-zinc-600 text-white'
@@ -759,10 +778,11 @@ export default function SiteMap({
                 <div>${esc(h.generation_constraint ?? h.demand_constraint ?? '')}</div>`
              : '<div class="mt-1">No published headroom</div>'
          }
-         ${sub.gsp ? `<div>GSP: ${esc(sub.gsp)}${sub.bsp ? ` · BSP: ${esc(sub.bsp)}` : ''}</div>` : ''}`
+         ${sub.gsp ? `<div>GSP: ${esc(sub.gsp)}${sub.bsp ? ` · BSP: ${esc(sub.bsp)}` : ''}</div>` : ''}
+         ${others.length ? `<div class="mt-1 text-zinc-500">Same site: ${others.join(', ')}</div>` : ''}`
       );
     });
-  }, [mapLoaded, siteData, titleParcels?.length]);
+  }, [mapLoaded, siteData, titleParcels?.length, servingSubstation?.name]);
 
   // Title polygons: candidates faint, the site filled, the pin's own polygon outlined dark; a click toggles one
   useEffect(() => {

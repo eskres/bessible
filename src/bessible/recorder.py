@@ -18,6 +18,7 @@ from bessible.config import settings
 from bessible.models import (
     AssessmentRequest,
     AssessmentResult,
+    Position,
     RunStatus,
     SiteDecision,
 )
@@ -203,11 +204,25 @@ def save_run_recording(
         assert_no_secrets(out_dir, known_secrets=_configured_secrets())
     except SecretDetectedError:
         # Clean up any partial files if secret detected
-        for fname in ["request.json", "events.jsonl", "statuses.json", "decision.json", "result.json"]:
+        for fname in ["request.json", "events.jsonl", "statuses.json", "decision.json", "result.json", SITE_DATA_FILE]:
             (out_dir / fname).unlink(missing_ok=True)
         raise
 
     return out_dir
+
+
+SITE_DATA_FILE = "site_data.json"
+
+
+async def save_site_data(dest_dir: Path | str, position: Position) -> Path:
+    """Save the map layers (`location.collate`) at the recorded pin; `/site-data` serves them without a fetch."""
+    from bessible.location import Coordinates, collate
+
+    location = await collate(Coordinates(lat=position.lat, lon=position.lon))
+    payload = {"lat": position.lat, "lon": position.lon, "data": location.model_dump(mode="json")}
+    path = Path(dest_dir) / SITE_DATA_FILE
+    path.write_text(json.dumps(payload, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    return path
 
 
 async def record_live_run(
@@ -266,6 +281,13 @@ async def record_live_run(
         await asyncio.sleep(0.3)
 
     result: AssessmentResult = await handle.result()
+
+    pin = request.position or status.position
+    if pin is not None:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        await save_site_data(target_dir, pin)  # scanned for secrets with the rest below
+    else:
+        (target_dir / SITE_DATA_FILE).unlink(missing_ok=True)
 
     # Read events emitted to out/<run_id>/events.jsonl
     events_file = settings.data_dir.parent / "out" / run_id / "events.jsonl"

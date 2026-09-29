@@ -9,22 +9,25 @@ export interface DemoPreset {
   desc: string;
   /** The recorded backend run in `data/demo/<slug>` that the demo replays instead of simulating in the browser. */
   slug?: string;
+  /** Map zoom for this site (default 14.5); each step of 1 is one zoom click. */
+  zoom?: number;
 }
 
 export const DEMO_PRESETS: DemoPreset[] = [
   {
     label: 'Histon Viable (CB24 9ZR)',
     postcode: 'CB24 9ZR',
-    coords: [0.1082, 52.245],
+    coords: [0.09612, 52.24794],
     desc: 'Viable firm capacity (37.7 MW firm at Histon Grid 33kV)',
     slug: 'histon',
   },
   {
     label: 'Dorking (RH4 1AD)',
     postcode: 'RH4 1AD',
-    coords: [-0.3302, 51.2329],
+    coords: [-0.34481, 51.23497],
     desc: '8 MW firm at Dorking Town 11kV',
     slug: 'dorking',
+    zoom: 16.5, // a small 8 MW site: two clicks closer
   },
   {
     label: 'Out of Area (Manchester M1 1AD)',
