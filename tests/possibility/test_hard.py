@@ -28,6 +28,7 @@ SOURCE_NAMES = (
     "EA: flood zones",
     "Natural England: sssi",
     "NGED: network capacity map",
+    "Planning Data: designations on the title",
 )
 
 
@@ -56,9 +57,9 @@ def substation(generation_mw=30.0, demand=25.0, distance_km=1.0):
 
 
 def good_site(**overrides):
-    """A flat, dry, undesignated 10 ha English field next to a substation with headroom."""
+    """A flat, dry, undesignated 10 ha English field on a town's edge, next to a substation with headroom."""
     parts = {
-        "locality": Locality(country="England"),
+        "locality": Locality(country="England", built_up_area="Testham"),
         "terrain": Terrain(
             source="ea_lidar_1m",
             resolution_m=1,
@@ -323,3 +324,13 @@ def test_a_joined_site_counts_its_polygons_and_lists_them_in_the_details():
     assert check.reason == "20 INSPIRE polygons cover 10.58 ha."
     assert check.details[:2] == ["INSPIRE polygon 1", "INSPIRE polygon 2"]
     assert len(check.details) == 20
+
+
+def test_built_up_area_warns_in_open_countryside():
+    town = hard.within_built_up_area(propose())
+    field = hard.within_built_up_area(propose(locality=Locality(country="England")))
+    wales = hard.within_built_up_area(propose(locality=Locality(country="Wales")))
+    assert (town.outcome, town.facts["built_up_area"]) == ("pass", "Testham")
+    assert field.outcome == "warn"
+    assert wales.outcome == "unknown"
+    assert "England only" in wales.reason

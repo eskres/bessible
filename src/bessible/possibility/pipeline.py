@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import HttpUrl
 
-from bessible.models import Artifact, DataGap, SiteLandOutput
+from bessible.models import Artifact, DataGap, SiteCheck, SiteLandOutput
 
 from .hard import can_block
 
@@ -43,7 +43,8 @@ def artifact_from(check: Check, run_id: str) -> Artifact | None:
 def site_land_output(proposal: Proposal, report: PossibilityReport, run_id: str) -> SiteLandOutput:
     land = proposal.location.deterministic.land
     grades = ", ".join(f"{g.grade} {g.overlap_pct:g}%" for g in land.alc) if land and land.alc else "unknown"
-    artifacts = [a for check in report.checks if (a := artifact_from(check, run_id))]
+    cited = [(check, artifact_from(check, run_id)) for check in report.checks]
+    artifacts = [a for _, a in cited if a]
     return SiteLandOutput(
         land_use=f"Agricultural land classification: {grades}",
         constraints=report.blockers + report.caveats,
@@ -60,6 +61,9 @@ def site_land_output(proposal: Proposal, report: PossibilityReport, run_id: str)
             )
             for c in report.checks
             if c.outcome == "unknown"
+        ],
+        checks=[
+            SiteCheck(name=c.name, outcome=c.outcome, facts=c.facts, artifact_id=a.id if a else None) for c, a in cited
         ],
         artifacts=artifacts,
     )

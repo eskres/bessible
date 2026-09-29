@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AssessmentResult, Artifact, AssumptionSource, FinancialCase } from '../lib/types';
+import { AssessmentResult, Artifact, AssumptionSource, FinancialCase, PlanningRisk } from '../lib/types';
 import { downloadMarkdownReport, printReport } from '../lib/reportExport';
 import DataGaps from './DataGaps';
 import { StageBadge, stageStyle } from '../lib/stages';
@@ -184,6 +184,17 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
     viable: true,
     out_of_area: false,
   };
+  // Planning: the stage's route and cited risks; recordings made before it was added fall back to `land_planning`
+  const planning = result.planning ?? null;
+  const planningRisks: PlanningRisk[] = planning?.risks ?? [];
+  const assessedRisks = planningRisks.filter((r) => r.assessed);
+  const consentingRoute =
+    planning?.consenting_route || land_planning?.consenting_route || (capacityMw >= 50 ? 'NSIP (DCO)' : 'TCPA (Local Plan)');
+  const greenBeltRisk = planningRisks.find((r) => r.source === 'outside_green_belt');
+  const greenBelt: 'designated' | 'clear' | 'unknown' = planning
+    ? greenBeltRisk ? (greenBeltRisk.assessed ? 'designated' : 'unknown') : 'clear'
+    : land_planning?.green_belt ? 'designated' : 'clear';
+  const artifactById = (id: string) => artifacts.find((a) => a.id === id) ?? null;
   const reservedAcres = site?.reserved_acres ?? land_planning?.reserved_acres ?? Number((capacityMw * 4 * 0.0625).toFixed(2));
   const posString = site
     ? Array.isArray(site.position)
@@ -372,17 +383,34 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
         <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Planning Consent</span>
-            <Badge variant="outline" className="text-[10px] uppercase font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30">
-              {land_planning?.planning_risk || 'Low Risk'}
-            </Badge>
+            {planning ? (
+              <Badge
+                variant="outline"
+                className={`text-[10px] uppercase font-semibold ${
+                  assessedRisks.length
+                    ? 'text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/30'
+                    : 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+                }`}
+              >
+                {assessedRisks.length} risk{assessedRisks.length === 1 ? '' : 's'}
+                {planningRisks.length > assessedRisks.length && ` · ${planningRisks.length - assessedRisks.length} not assessed`}
+              </Badge>
+            ) : (
+              land_planning?.planning_risk && (
+                <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                  {land_planning.planning_risk}
+                </Badge>
+              )
+            )}
           </div>
           <div className="mt-3">
-            <div className="text-base font-bold text-foreground truncate">
-              {land_planning?.consenting_route || (capacityMw >= 50 ? 'NSIP (DCO)' : 'TCPA (Local Plan)')}
-            </div>
+            <div className="text-base font-bold text-foreground truncate">{consentingRoute}</div>
             <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Green Belt: {land_planning?.green_belt ? 'Designated' : 'Clear (No designation)'}</span>
+              <span>
+                Green Belt:{' '}
+                {greenBelt === 'designated' ? 'Designated' : greenBelt === 'unknown' ? 'Not assessed' : 'Clear (No designation)'}
+              </span>
             </p>
           </div>
         </div>
@@ -514,16 +542,68 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             </div>
             <div className="flex justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">Metropolitan Green Belt Status</span>
-              <span className={`font-semibold ${land_planning?.green_belt ? 'text-amber-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                {land_planning?.green_belt ? 'Designated (Requires Very Special Circumstances)' : 'Clear (Outside Green Belt)'}
+              <span
+                className={`font-semibold ${
+                  greenBelt === 'designated'
+                    ? 'text-amber-600'
+                    : greenBelt === 'unknown'
+                      ? 'text-muted-foreground'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {greenBelt === 'designated'
+                  ? 'Designated (Requires Very Special Circumstances)'
+                  : greenBelt === 'unknown'
+                    ? 'Not assessed (no data)'
+                    : 'Clear (Outside Green Belt)'}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-border/50">
-              <span className="text-muted-foreground">Statutory Planning Consent Route</span>
-              <span className="font-semibold text-foreground">
-                {land_planning?.consenting_route || (capacityMw >= 50 ? 'NSIP (DCO Route)' : 'TCPA (Local Planning Authority)')}
-              </span>
+            <div className="flex justify-between gap-3 py-1 border-b border-border/50">
+              <span className="text-muted-foreground shrink-0">Statutory Planning Consent Route</span>
+              <span className="font-semibold text-foreground text-right">{consentingRoute}</span>
             </div>
+
+            {/* Planning risks: each opens the one artifact that states the fact behind it */}
+            {planning && (
+              <div className="pt-1 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Planning Risks</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Click a risk for its evidence</span>
+                </div>
+                {planningRisks.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">No planning risk found in the data checked.</p>
+                )}
+                {planningRisks.map((r) => {
+                  const cited = artifactById(r.artifact_id);
+                  return (
+                    <button
+                      key={`${r.source}-${r.artifact_id}`}
+                      type="button"
+                      disabled={!cited}
+                      onClick={() => cited && setSelectedArtifact(cited)}
+                      className={`w-full text-left flex items-start gap-2 p-2 rounded-lg border text-[11px] transition ${
+                        r.assessed
+                          ? 'border-amber-500/30 bg-amber-500/5 text-foreground'
+                          : 'border-border bg-muted/30 text-muted-foreground'
+                      } ${cited ? 'cursor-pointer hover:border-emerald-500/50' : 'cursor-default'}`}
+                    >
+                      {r.assessed ? (
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+                      ) : (
+                        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      )}
+                      <span className="min-w-0 break-words">
+                        {r.text}
+                        <span className="ml-1 font-mono text-[9px] text-muted-foreground">[{r.artifact_id}]</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Local Community Sentiment Scan */}
             <div className="pt-2 border-t border-border/70 space-y-2">

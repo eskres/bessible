@@ -396,6 +396,15 @@ class GridOutput(BaseModel):
     gaps: list[DataGap] = Field(default_factory=list)
 
 
+class SiteCheck(BaseModel):
+    """One site/land check's outcome in structured form, for the stages that act on it (planning risks)."""
+
+    name: str  # the check's name in `possibility.hard`, e.g. "outside_green_belt"
+    outcome: Literal["pass", "warn", "fail", "unknown"]
+    facts: dict[str, bool | int | float | str | None] = Field(default_factory=dict)
+    artifact_id: str | None = None  # the check's own artifact; None when it had no source to cite
+
+
 class SiteLandOutput(BaseModel):
     """Site land use and planning constraints assessment."""
 
@@ -404,6 +413,7 @@ class SiteLandOutput(BaseModel):
     blockers: list[str] = Field(default_factory=list, description="Hard-check failures: cannot be built here.")
     caveats: list[str] = Field(default_factory=list, description="Hard-check warnings: possible with a caveat.")
     gaps: list[DataGap] = Field(default_factory=list, description="Checks with no data, and why.")
+    checks: list[SiteCheck] = Field(default_factory=list, description="Every check's outcome, by name.")
     artifacts: list[Artifact] = Field(default_factory=list)
 
 
@@ -546,11 +556,29 @@ class NearbyProject(BaseModel):
         return f"{self.mw:g} MW" if self.mw is not None else "capacity not stated"
 
 
+class PlanningRisk(BaseModel):
+    """One planning risk, citing the one artifact that states the fact behind it."""
+
+    text: str
+    artifact_id: str
+    source: str  # what raised it: a site/land check name, "nfcc_guidance" or "repd_refusals"
+    assessed: bool = True  # False: a data gap, "not assessed: <what>", not an asserted risk
+
+    @model_validator(mode="before")
+    @classmethod
+    def from_legacy_string(cls, value: Any) -> Any:  # ruff: ignore[any-type] - raw input before validation
+        """Recordings made before risks were structured hold `"<text> [<artifact id>]"` strings."""
+        if isinstance(value, str):
+            text, _, cited = value.rpartition(" [")
+            return {"text": text or value, "artifact_id": cited.rstrip("]"), "source": "legacy"}
+        return value
+
+
 class PlanningOutput(BaseModel):
     """Consenting pathway and regulatory risk assessment."""
 
     consenting_route: str
-    risks: list[str] = Field(default_factory=list)
+    risks: list[PlanningRisk] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     tia: TiaStatement | None = None
     nearby: list[NearbyProject] = Field(default_factory=list)
@@ -627,6 +655,7 @@ class AssessmentResult(BaseModel):
     sentiment: SentimentOutput | None = None  # so a keyless demo can re-assess a moved site
     site: ConfirmedSite | None = None  # the site the user confirmed; the report's MW and MWh come from it
     capacity: CapacityOutput | None = None
+    planning: PlanningOutput | None = None  # consenting route and cited risks, for the report
     artifacts: list[Artifact] = Field(default_factory=list)
     gaps: list[DataGap] = Field(default_factory=list, description="Every stage's missing evidence.")
     retries_left: int = 0

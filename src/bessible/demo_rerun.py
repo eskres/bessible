@@ -180,6 +180,7 @@ async def rerun(
         report=report,
         financial=financial,
         sentiment=sentiment,
+        planning=planning,
         site=site,
         capacity=capacity,
         artifacts=artifacts + report.artifacts,

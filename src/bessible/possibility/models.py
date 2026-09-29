@@ -52,6 +52,7 @@ CHECK_LABELS = {
     "outside_flood_zone_3": "Flood risk",
     "outside_green_belt": "Green belt",
     "avoids_best_farmland": "Farmland grade",
+    "within_built_up_area": "Built-up area",
     "clear_of_protected_ecology": "Protected habitats",
     "clear_of_protected_heritage": "Heritage assets",
     "clear_of_protected_landscape": "Protected landscape",

@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 from pydantic import HttpUrl
 
 from bessible.config import settings
-from bessible.models import Artifact, PlanningInput, PlanningOutput
+from bessible.models import Artifact, PlanningInput, PlanningOutput, PlanningRisk
 from bessible.planning.evidence import load_policy, summarise
 from bessible.planning.ingest_repd import DATASET_URL, get_repd_snapshot, nearby_batteries
+from bessible.planning.risks import fire_safety, precedent, refusals, site_risks
 from bessible.planning.route import consenting_route, lookup_lpa
 from bessible.planning.tia import tia_statement
 
@@ -31,45 +32,9 @@ def _repd_cite(p: NearbyProject) -> str:
     return f"REPD Ref ID {p.ref_id}, spreadsheet row {p.csv_row}"
 
 
-DEFAULT_RISKS = [
-    "Landscape and visual impact mitigation required for adjacent countryside",
-    "Battery safety management plan required for fire authority approval",
-    "Noise assessment required for night-time operation",
-]
-
-
-def derive_planning_risks(site_land: SiteLandOutput, planning_art_id: str) -> list[str]:
-    """Derive planning risks citing evidence artifacts from site_land and planning."""
-    risks: list[str] = []
-    land_art_id = site_land.artifacts[0].id if site_land.artifacts else None
-
-    # Risks derived from site land constraints
-    for constraint in site_land.constraints:
-        c_lower = constraint.lower()
-        if "green belt" in c_lower:
-            risk = "Green Belt designation: very special circumstances justification required"
-        elif "flood" in c_lower and "low" not in c_lower and "zone 1" not in c_lower:
-            risk = "Flood risk: sequential and exception tests required"
-        elif "sssi" in c_lower and "no sssi" not in c_lower:
-            risk = "Ecological designation: SSSI impact assessment required"
-        elif "ancient woodland" in c_lower:
-            risk = "Ancient woodland: minimum buffer zone required"
-        elif "listed building" in c_lower or "heritage" in c_lower:
-            risk = "Heritage asset: setting impact assessment required"
-        elif "aonb" in c_lower or "national park" in c_lower:
-            risk = "Landscape designation: major development test applies"
-        else:
-            continue
-
-        if land_art_id:
-            risks.append(f"{risk} [{land_art_id}]")
-        else:
-            risks.append(risk)
-
-    # Standard statutory planning risks citing the planning stage artifact
-    risks.extend(f"{default_risk} [{planning_art_id}]" for default_risk in DEFAULT_RISKS)
-
-    return risks
+def derive_planning_risks(site_land: SiteLandOutput, planning_art_id: str) -> list[PlanningRisk]:
+    """The site/land checks' planning risks, each citing its check's artifact (see `planning.risks`)."""
+    return site_risks(site_land.checks, planning_art_id)
 
 
 async def regulatory_planning(
@@ -106,8 +71,6 @@ async def regulatory_planning(
         model_used="none (planning.data.gov.uk lookup)",
     )
 
-    risks = derive_planning_risks(inp.site_land, planning_art.id)
-
     # F2: Transmission Impact Assessment
     threshold = inp.capacity.tia_threshold_mw if inp.capacity else None
     capacity_mw = inp.site.capacity_mw
@@ -130,6 +93,7 @@ async def regulatory_planning(
         source_name += f" (fetched {snap.fetched_at.isoformat()})"
     except Exception:
         log.warning("Could not load REPD snapshot", exc_info=True)
+        snap = None
         nearby = []
         repd_url = HttpUrl(DATASET_URL)
         source_name = "DESNZ REPD (snapshot unavailable)"
@@ -168,6 +132,14 @@ async def regulatory_planning(
     ]
 
     artifacts = [planning_art, tia_art, repd_art, *project_arts]
+
+    # Risks: the site's own first, then refusal precedent and the fire guidance, with the gaps last
+    lpa_name = lpa.name if lpa else None
+    refused = precedent(refusals(inp.site.position, lpa_name, snap), lpa_name, snap, inp.run_id) if snap else None
+    cited = [r for r in (refused, fire_safety(capacity_mw, inp.run_id)) if r]
+    artifacts += [a for _, a in cited]
+    site = derive_planning_risks(inp.site_land, planning_art.id)
+    risks = [r for r in site if r.assessed] + [r for r, _ in cited] + [r for r in site if not r.assessed]
 
     # Summarise with the run's model, when the activity supplies one
     policy = load_policy()
