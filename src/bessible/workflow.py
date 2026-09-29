@@ -379,6 +379,7 @@ class AssessmentWorkflow:
             report=report,
             financial=analysis.financial,
             sentiment=analysis.sentiment,
+            planning=analysis.planning,
             site=site,
             capacity=self._capacity,
             artifacts=all_artifacts + report.artifacts,

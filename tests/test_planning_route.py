@@ -25,7 +25,7 @@ from bessible.planning.route import (
     consenting_route,
     lookup_lpa,
 )
-from bessible.stages.planning import derive_planning_risks, regulatory_planning
+from bessible.stages.planning import regulatory_planning
 
 FIXTURE = Path(__file__).parent / "api" / "fixtures" / "planning_data_entity_darlington.json"
 POS = Position(lat=54.52, lon=-1.55)
@@ -175,30 +175,3 @@ async def test_stage_wales_flagged(monkeypatch):
     out = await regulatory_planning(planning_input())
     assert ROUTE_OUTSIDE_ENGLAND in out.consenting_route
     assert "Wales" in out.artifacts[0].claim
-
-
-def test_derive_planning_risks_cites_green_belt():
-    site_land = SiteLandOutput(
-        land_use="Agricultural",
-        constraints=["Green Belt designation intersects eastern boundary"],
-        artifacts=[
-            Artifact(
-                id="site_land-abcd",
-                stage="site_land",
-                claim="Green Belt presence",
-                source_url=HttpUrl("https://magic.defra.gov.uk"),
-                confidence=0.95,
-                model_used="dummy",
-            )
-        ],
-    )
-    risks = derive_planning_risks(site_land, planning_art_id="planning-1234")
-    # Must include Green Belt risk citing site_land artifact
-    gb_risks = [r for r in risks if "Green Belt" in r]
-    assert len(gb_risks) == 1
-    assert "[site_land-abcd]" in gb_risks[0]
-
-    # All risks must cite either site_land or planning artifact
-    valid_ids = {"[site_land-abcd]", "[planning-1234]"}
-    for r in risks:
-        assert any(vid in r for vid in valid_ids), f"Risk '{r}' does not cite a valid artifact ID"

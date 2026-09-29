@@ -44,6 +44,7 @@ TITLE_SOURCE = ("Planning Data: title boundary",)
 TERRAIN_SOURCES = ("EA LIDAR", "Open-Meteo")
 FLOOD_SOURCE = ("EA: flood zones",)
 LAND_SOURCES = ("Natural England: alc", "Planning Data: designations on the title")
+BUILT_UP_SOURCE = ("Planning Data: designations on the title",)  # the ONS built-up-area layer is queried with them
 DESIGNATION_SOURCES = ("Natural England", "Planning Data: designations")
 GRID_SOURCES = ("UKPN", "NGED", "SSEN", "SP Energy Networks")
 
@@ -108,7 +109,21 @@ def outside_green_belt(proposal: Proposal) -> Check:
         return result("unknown", _not_assessed("Green belt", proposal))
     if not land.green_belt:
         return result("pass", "Not in the green belt.")
-    return result("warn", f"In the green belt ({land.green_belt_name or 'unnamed'}): needs very special circumstances.")
+    name = land.green_belt_name or "unnamed"
+    return result("warn", f"In the green belt ({name}): needs very special circumstances.", green_belt_name=name)
+
+
+def within_built_up_area(proposal: Proposal) -> Check:
+    """Whether the site touches a built-up area: outside one it sits in open countryside."""
+    result = partial(_check, "within_built_up_area", proposal, BUILT_UP_SOURCE)
+    locality = proposal.location.deterministic.locality
+    if locality.country != "England" or not _source_urls(proposal, BUILT_UP_SOURCE):
+        return result("unknown", _not_assessed("Built-up area", proposal))
+    if locality.built_up_area:
+        return result(
+            "pass", f"Touches the {locality.built_up_area} built-up area.", built_up_area=locality.built_up_area
+        )
+    return result("warn", "Touches no built-up area: the site is in open countryside.", built_up_area=None)
 
 
 def avoids_best_farmland(proposal: Proposal) -> Check:
@@ -240,6 +255,7 @@ HARD_CHECKS: tuple[Callable[[Proposal], Check], ...] = (
     outside_flood_zone_3,
     outside_green_belt,
     avoids_best_farmland,
+    within_built_up_area,
     clear_of_protected_ecology,
     clear_of_protected_heritage,
     clear_of_protected_landscape,

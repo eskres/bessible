@@ -135,7 +135,8 @@ async def test_title_and_analysis_stages():
     )
 
     assert len(fin.cases) == 3
-    assert len(plan.risks) > 0
+    plan_ids = {a.id for a in land.artifacts + plan.artifacts}
+    assert all(r.artifact_id in plan_ids for r in plan.risks)  # may be empty: a clear site has no planning risk
 
     all_arts = (
         loc.artifacts

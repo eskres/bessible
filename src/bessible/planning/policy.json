@@ -19,14 +19,14 @@
   },
   {
     "id": "policy-nfcc-safety",
-    "title": "NFCC Grid Scale Battery Energy Storage Guidance",
-    "statement": "National Fire Chiefs Council guidance requires developers to submit Battery Safety Management Plans (BSMP) detailing thermal runaway mitigation, separation distances, and emergency service access.",
-    "source_url": "https://www.ukfrs.com/guidance/grid-scale-battery-energy-storage-systems-bess"
+    "title": "NFCC Grid Scale Energy Storage System Planning: Guidance for Fire and Rescue Services (December 2025)",
+    "statement": "\"This guidance relates to battery energy storage systems (BESS) which are deployed in open air environments, with an energy capacity of one megawatt hour (MWh) or greater using lithium variant batteries.\" \"Although fire and rescue services are not a statutory consultee for planning\" they \"should be part of early conversations regarding BESS proposals.\"",
+    "source_url": "https://nfcc.org.uk/our-services/building-safety/grid-scale-energy-storage-system-planning-guidance-for-fire-and-rescue-services/"
   },
   {
     "id": "policy-ppg-renewables",
-    "title": "Planning Practice Guidance: Renewable and Low Carbon Energy",
-    "statement": "PPG encourages energy storage development alongside existing grid infrastructure, requiring appropriate landscape mitigation, acoustic fencing, and environmental screening.",
-    "source_url": "https://www.gov.uk/guidance/renewable-and-low-carbon-energy"
+    "title": "Planning Practice Guidance: Renewable and Low Carbon Energy, paragraph 034 (5-034-20230814)",
+    "statement": "\"Where planning permission is being sought for development of battery energy storage systems of 1 MWh or over, and excluding where battery energy storage systems are associated with a residential dwelling, applicants are encouraged to engage with the relevant local fire and rescue service before submitting an application to the local planning authority.\"",
+    "source_url": "https://www.gov.uk/guidance/renewable-and-low-carbon-energy#battery-energy-storage-systems"
   }
 ]

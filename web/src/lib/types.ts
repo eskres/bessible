@@ -102,6 +102,21 @@ export interface Artifact {
   snapshot_date?: string;
 }
 
+/** One planning risk, citing the one artifact that states the fact behind it (`PlanningRisk` in models.py). */
+export interface PlanningRisk {
+  text: string;
+  artifact_id: string;
+  source: string; // what raised it: a site/land check name, "nfcc_guidance" or "repd_refusals"
+  assessed: boolean; // false: a data gap ("Not assessed: ..."), not an asserted risk
+}
+
+/** The planning stage's consenting route and risks (`PlanningOutput` in models.py). */
+export interface PlanningOutput {
+  consenting_route: string;
+  risks: PlanningRisk[];
+  artifacts?: Artifact[];
+}
+
 /** Cable from the site to the serving substation: the straight line, priced with a detour factor. */
 export interface CableRoute {
   distance_km: number; // priced length: straight_km x detour_factor
@@ -300,6 +315,8 @@ export interface AssessmentResult {
   };
   sentiment?: SentimentOutput;
   financial?: FinancialOutput | null;
+  /** Consenting route and cited planning risks; absent in recordings made before it was added. */
+  planning?: PlanningOutput | null;
   report?: ReportOutput;
   artifacts: Artifact[];
   /** Evidence the run could not get; the retryable ones can be fetched again while `retries_left` > 0. */
