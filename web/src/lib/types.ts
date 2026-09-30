@@ -235,6 +235,14 @@ export interface RunStatus {
   boundary?: TitleOutput | null;
 }
 
+/** Mirrors `DebtShareCase` in `src/bessible/models.py`: one duration case at one debt share. */
+export interface DebtShareCase {
+  debt_share_pct: number;
+  npv_gbp: number;
+  irr?: number | null;
+  equity_gbp: number;
+}
+
 /** Mirrors `DurationCase` in `src/bessible/models.py`. `irr` is a fraction; null when equity never pays back. */
 export interface FinancialCase {
   duration_h: 2 | 4 | 8;
@@ -245,6 +253,8 @@ export interface FinancialCase {
   curtailment_pct?: number | null;
   payback_years?: number | null;
   equity_gbp?: number | null;
+  /** The same case at 0-80% debt in 5% steps; absent in recordings made before the debt slider. */
+  by_debt_share?: DebtShareCase[];
 }
 
 /** Mirrors `AssumptionSource` in `src/bessible/models.py`: one documented input to the financial model. */
