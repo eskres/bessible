@@ -27,6 +27,7 @@ SOURCE_NAMES = (
     "Planning Data: title boundary",
     "EA: flood zones",
     "Natural England: sssi",
+    "Natural England: aonb",
     "NGED: network capacity map",
     "Planning Data: designations on the title",
 )
@@ -282,6 +283,45 @@ def test_a_failed_designation_layer_is_not_a_pass():
     check = hard.clear_of_protected_ecology(Proposal(location=location, battery_mw=20))
     assert check.outcome == "unknown"
     assert check.failed_sources == ["Natural England: sac"]
+
+
+def failed_layer(name):
+    location = good_site()
+    location.sources.append(SourceStatus(name=name, url="https://example.org/x", status="failed", detail="400"))
+    return Proposal(location=location, battery_mw=20)
+
+
+@pytest.mark.parametrize(
+    "check", [hard.clear_of_protected_ecology, hard.clear_of_protected_heritage, hard.clear_of_protected_landscape]
+)
+def test_a_failed_layer_no_designation_check_uses_leaves_them_passing(check):
+    assert check(failed_layer("Natural England: priority_habitats")).outcome == "pass"
+
+
+@pytest.mark.parametrize(
+    ("layer", "feeds", "ignores"),
+    [
+        ("Natural England: sssi", hard.clear_of_protected_ecology, hard.clear_of_protected_landscape),
+        ("Natural England: aonb", hard.clear_of_protected_landscape, hard.clear_of_protected_ecology),
+        (
+            "Planning Data: designations within 2000 m",
+            hard.clear_of_protected_heritage,
+            hard.clear_of_protected_ecology,
+        ),
+    ],
+)
+def test_a_failed_layer_is_a_gap_only_in_the_check_it_feeds(layer, feeds, ignores):
+    proposal = failed_layer(layer)
+    gap = feeds(proposal)
+    assert gap.outcome == "unknown"
+    assert gap.failed_sources == [layer]
+    assert f"{layer} failed (400)" in gap.reason
+    assert ignores(proposal).outcome == "pass"
+
+
+def test_a_layer_name_matches_whole_words_only():
+    """sssi_irz (impact risk zones) is not the SSSI layer."""
+    assert hard.clear_of_protected_ecology(failed_layer("Natural England: sssi_irz")).outcome == "pass"
 
 
 def test_only_checks_that_can_fail_can_hide_a_blocker():

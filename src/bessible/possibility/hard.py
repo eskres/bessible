@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from functools import partial
 from typing import TYPE_CHECKING
+
+from bessible.location.transform import NE_LAYERS, PLANNING_DATASETS
 
 from .models import Check, Fact, Limits, Outcome, PossibilityReport, Proposal
 
@@ -39,14 +42,21 @@ DESIGNATION_LABEL = {
     "national_landscape": "National Landscape (AONB)",
 }
 
-# Names of the `LocationData.sources` each check's facts come from (matched by prefix).
+# Names of the `LocationData.sources` each check's facts come from (matched by prefix, up to a word boundary).
 TITLE_SOURCE = ("Planning Data: title boundary",)
 TERRAIN_SOURCES = ("EA LIDAR", "Open-Meteo")
 FLOOD_SOURCE = ("EA: flood zones",)
 LAND_SOURCES = ("Natural England: alc", "Planning Data: designations on the title")
 BUILT_UP_SOURCE = ("Planning Data: designations on the title",)  # the ONS built-up-area layer is queried with them
-DESIGNATION_SOURCES = ("Natural England", "Planning Data: designations")
 GRID_SOURCES = ("UKPN", "NGED", "SSEN", "SP Energy Networks")
+PLANNING_DESIGNATION_SOURCE = "Planning Data: designations"  # "... on the title" and "... within N m"
+
+
+def designation_sources(kinds: tuple[str, ...]) -> tuple[str, ...]:
+    """The sources that can report these kinds: only their failures leave a designation check unanswered."""
+    layers = tuple(f"Natural England: {layer}" for layer, (kind, *_) in NE_LAYERS.items() if kind in kinds)
+    planning = any(kind in kinds for kind, *_ in PLANNING_DATASETS.values())
+    return layers + ((PLANNING_DESIGNATION_SOURCE,) if planning else ())
 
 
 # ------------------------------------------- the land ------------------------------------------- #
@@ -157,11 +167,12 @@ def clear_of_protected_landscape(proposal: Proposal) -> Check:
 
 
 def _clear_of(kinds: tuple[str, ...], name: str, proposal: Proposal) -> Check:
-    result = partial(_check, name, proposal, DESIGNATION_SOURCES)
-    if not _designations_cover(proposal):
+    sources = designation_sources(kinds)
+    result = partial(_check, name, proposal, sources)
+    if not _designations_cover(proposal, sources):
         return result("unknown", _not_assessed("Designations", proposal))
     on_site = [d for d in proposal.location.deterministic.designations if d.kind in kinds and d.on_site]
-    if not on_site and _failed(proposal, DESIGNATION_SOURCES):
+    if not on_site and _failed(proposal, sources):
         return result("unknown", f"None found on the title ({', '.join(kinds)}), but not every layer answered.")
     if not on_site:
         return result("pass", f"None on the title ({', '.join(kinds)}).")
@@ -182,9 +193,9 @@ def _designation_name(designation: Designation) -> str:
     return designation.name if first_word in designation.name.lower() else f"{designation.name} {label}"
 
 
-def _designations_cover(proposal: Proposal) -> bool:
+def _designations_cover(proposal: Proposal, sources: tuple[str, ...]) -> bool:
     in_england = proposal.location.deterministic.locality.country == "England"
-    return in_england and bool(_source_urls(proposal, DESIGNATION_SOURCES))
+    return in_england and bool(_source_urls(proposal, sources))
 
 
 def _covered_pct(designation: Designation) -> float:
@@ -305,7 +316,7 @@ def _check(
     if outcome != "unknown":
         return Check(name=name, outcome=outcome, reason=reason, facts=rounded, source_urls=urls)
     # No data: say which source let us down, and point at the request we attempted.
-    missed = [s for s in proposal.location.sources if s.status != "ok" and s.name.startswith(sources)]
+    missed = [s for s in proposal.location.sources if s.status != "ok" and _named(s.name, sources)]
     if missed:
         why = [f"{s.name} {s.status}" + (f" ({s.detail[:120]})" if s.detail else "") for s in missed]
         reason += f" {'; '.join(why)}."
@@ -328,12 +339,17 @@ def _not_assessed(what: str, proposal: Proposal) -> str:
 
 
 def _failed(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:
-    return [s.name for s in proposal.location.sources if s.status == "failed" and s.name.startswith(prefixes)]
+    return [s.name for s in proposal.location.sources if s.status == "failed" and _named(s.name, prefixes)]
 
 
 def _source_urls(proposal: Proposal, prefixes: tuple[str, ...]) -> list[str]:
     succeeded = (s for s in proposal.location.sources if s.status == "ok" and s.url.startswith("http"))
-    return [s.url for s in succeeded if s.name.startswith(prefixes)]
+    return [s.url for s in succeeded if _named(s.name, prefixes)]
+
+
+def _named(name: str, prefixes: tuple[str, ...]) -> bool:
+    """`name` starts with a prefix that ends on a word boundary: "Natural England: sssi" is not "...: sssi_irz"."""
+    return any(re.match(rf"{re.escape(p)}\b", name) for p in prefixes)
 
 
 def _lower_is_worse(value: float, *, fail_below: float, warn_below: float) -> Outcome:
