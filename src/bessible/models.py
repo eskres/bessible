@@ -461,6 +461,15 @@ class CaseBound(BaseModel):
     payback_years: float | None = None
 
 
+class DebtShareCase(BaseModel):
+    """Equity returns of one duration case at one debt share, for the report's debt slider."""
+
+    debt_share_pct: int
+    npv_gbp: float
+    irr: float | None = None
+    equity_gbp: float
+
+
 class DurationCase(BaseModel):
     """Financial returns for a specific storage duration case."""
 
@@ -474,6 +483,7 @@ class DurationCase(BaseModel):
     high: CaseBound | None = None
     payback_years: float | None = None
     equity_gbp: float | None = None  # year-0 equity: capex not covered by debt, plus the arrangement fee
+    by_debt_share: list[DebtShareCase] = Field(default_factory=list)  # the same case at 0-80% debt, in 5% steps
 
 
 class AssumptionSource(BaseModel):

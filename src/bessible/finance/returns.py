@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from bessible.models import DurationCase
+from bessible.models import DebtShareCase, DurationCase
 
 if TYPE_CHECKING:
     from bessible.assumptions import AssumptionSet
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 IRR_UPPER = 10.0
 IRR_ITERATIONS = 200
+DEBT_SHARES_PCT = range(0, 81, 5)  # the report's debt slider steps
 
 
 class Financing(BaseModel):
@@ -89,6 +90,14 @@ def returns(  # ruff: ignore[too-many-arguments,too-many-positional-arguments]
     f = Financing.from_assumptions(a)
     flows = cash_flows(cost, revenue_gbp_per_mw_year, curtail_pct, f)
     over_budget = bool(budget_gbp is not None and cost.capex_gbp > budget_gbp)
+    by_debt_share = []
+    for pct in DEBT_SHARES_PCT:
+        at = cash_flows(cost, revenue_gbp_per_mw_year, curtail_pct, f.model_copy(update={"debt_share": pct / 100}))
+        by_debt_share.append(
+            DebtShareCase(
+                debt_share_pct=pct, npv_gbp=round(npv(f.discount_rate, at), 2), irr=irr(at), equity_gbp=round(-at[0], 2)
+            )
+        )
     return DurationCase(
         duration_h=cost.duration_h,
         capex_gbp=round(cost.capex_gbp, 2),
@@ -97,4 +106,5 @@ def returns(  # ruff: ignore[too-many-arguments,too-many-positional-arguments]
         equity_gbp=round(-flows[0], 2),
         over_budget=over_budget,
         curtailment_pct=round(curtail_pct, 2),
+        by_debt_share=by_debt_share,
     )

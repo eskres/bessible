@@ -8,6 +8,7 @@ import { StageBadge, stageStyle } from '../lib/stages';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   Table,
   TableHeader,
@@ -38,7 +39,6 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
-  ShieldCheck,
   AlertTriangle,
   ChevronDown,
   MapPin,
@@ -64,12 +64,15 @@ const SOURCE_GROUPS: { group: AssumptionSource['group']; label: string }[] = [
 ];
 
 /** One assumption: label and value, then its source (linked when it has a URL), date and the quote behind it. */
-function SourceRow({ s }: { s: AssumptionSource }) {
+function SourceRow({ s, override }: { s: AssumptionSource; override?: string }) {
   return (
     <li className="py-2 border-b border-border last:border-0">
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-medium text-foreground">{s.label}</span>
-        <span className="tabular-nums text-foreground shrink-0">{s.value}</span>
+        <span className="tabular-nums text-foreground shrink-0">
+          {s.value}
+          {override && <span className="text-amber-700 dark:text-amber-300"> (not used: your input is {override})</span>}
+        </span>
       </div>
       <div className="mt-0.5 text-muted-foreground">
         {s.placeholder && (
@@ -188,6 +191,9 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
   const planning = result.planning ?? null;
   const planningRisks: PlanningRisk[] = planning?.risks ?? [];
   const assessedRisks = planningRisks.filter((r) => r.assessed);
+  const notAssessedRisks = planningRisks.length - assessedRisks.length;
+  // The planning stage states the route as "<route> - <council>"; the card shows only the council
+  const planningCouncil = planning?.consenting_route?.includes(' - ') ? planning.consenting_route.split(' - ').pop() : null;
   const consentingRoute =
     planning?.consenting_route || land_planning?.consenting_route || (capacityMw >= 50 ? 'NSIP (DCO)' : 'TCPA (Local Plan)');
   const greenBeltRisk = planningRisks.find((r) => r.source === 'outside_green_belt');
@@ -202,8 +208,20 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
       : `${site.position.lat.toFixed(5)}°N, ${Math.abs(site.position.lon).toFixed(5)}°${site.position.lon >= 0 ? 'E' : 'W'}`
     : 'Confirmed Site';
 
-  // Duration cases from the backend financial model; no invented fallback numbers
-  const financialCases: FinancialCase[] = financial?.cases ?? [];
+  // Debt slider: the model's sourced debt share by default; each case carries its returns at every slider step
+  const defaultDebtPct = financial?.debt_share_pct ?? null;
+  const [debtPct, setDebtPct] = useState<number | null>(defaultDebtPct);
+  const debtMoved = debtPct != null && debtPct !== defaultDebtPct;
+  const debtSource = financial?.sources?.find((s) => s.key === 'debt_share_pct');
+  const debtSliderReady = debtPct != null && (financial?.cases ?? []).every((c) => c.by_debt_share?.length);
+  const debtSteps = financial?.cases?.[0]?.by_debt_share?.map((s) => s.debt_share_pct) ?? [];
+  const [debtMin, debtMax] = [debtSteps[0] ?? 0, debtSteps[debtSteps.length - 1] ?? 80];
+
+  // Duration cases from the backend financial model at the slider's debt share; no invented fallback numbers
+  const financialCases: FinancialCase[] = (financial?.cases ?? []).map((c) => {
+    const at = c.by_debt_share?.find((s) => s.debt_share_pct === debtPct);
+    return at ? { ...c, npv_gbp: at.npv_gbp, irr: at.irr, equity_gbp: at.equity_gbp } : c;
+  });
   const activeCase: FinancialCase | undefined =
     financialCases.find((c) => c.duration_h === selectedDurationH) ?? financialCases[0];
   const activeIrr = activeCase?.irr != null ? activeCase.irr * 100 : null;
@@ -212,7 +230,7 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
   const projectLife = financial?.project_life_years ?? 25;
   const gbpM = (gbp: number, digits = 2) => `£${(gbp / 1000000).toFixed(digits)}M`;
   const equity = activeCase?.equity_gbp ?? null;
-  const debtShare = financial?.debt_share_pct;
+  const debtShare = debtPct;
   const financeSources = financial?.sources ?? [];
   const marketArtifacts = artifacts.filter((a) => a.stage === 'market');
   const financeInfoButton = (
@@ -305,41 +323,94 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
         </div>
       </div>
 
-      {/* 2. Executive Metric Hero Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Capex Card */}
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              Initial Capex {financeInfoButton}
-            </span>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground">
-              {activeH}H Case
-            </span>
+      {/* 2. Executive Metric Hero Cards, with the debt slider on the left */}
+      <div className="flex gap-4">
+        {debtSliderReady && activeCase && debtPct != null && (
+          <div className="w-44 shrink-0 p-4 rounded-2xl bg-card border border-border shadow-xs flex gap-3">
+            <div className="min-w-0 flex-1 flex flex-col justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Debt share {financeInfoButton}
+              </span>
+              <div>
+                <div className="text-2xl font-bold font-sans tabular-nums text-foreground tracking-tight">{debtPct}%</div>
+                {debtMoved ? (
+                  <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    your input ·{' '}
+                    <button type="button" onClick={() => setDebtPct(defaultDebtPct)} className="underline hover:text-foreground">
+                      Reset
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">sourced default</p>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground tabular-nums leading-relaxed">
+                {gbpM(activeCase.capex_gbp * (debtPct / 100), 1)} debt
+                {equity != null && (
+                  <>
+                    <br />
+                    {gbpM(equity, 1)} equity
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex">
+              <div className="mr-1.5 flex flex-col justify-between text-[10px] leading-3 text-muted-foreground tabular-nums text-right">
+                <span>{debtMax}%</span>
+                <span>{debtMin}%</span>
+              </div>
+              <div className="relative">
+                <Slider
+                  orientation="vertical"
+                  min={debtMin}
+                  max={debtMax}
+                  step={5}
+                  value={[debtPct]}
+                  aria-label="Debt share of capex"
+                  onValueChange={(val) => setDebtPct(Array.isArray(val) ? val[0] : typeof val === 'number' ? val : debtPct)}
+                />
+                {defaultDebtPct != null && (
+                  <span
+                    aria-hidden
+                    className="absolute -right-2 w-1.5 h-px bg-muted-foreground/60"
+                    style={{ bottom: `calc(6px + (100% - 12px) * ${(defaultDebtPct - debtMin) / (debtMax - debtMin || 1)})` }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
-          <div className="mt-3">
+        )}
+        <div className="grid flex-1 min-w-0 grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Capex Card */}
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Initial Capex {financeInfoButton}
+              </span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                {activeH}H Case
+              </span>
+            </div>
             <div className="text-2xl font-bold font-sans tabular-nums text-foreground tracking-tight">
               {activeCase ? gbpM(activeCase.capex_gbp) : '—'}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground">
               {activeCase
                 ? `~£${Math.round(activeCase.capex_gbp / (capacityMw * activeCase.duration_h) / 1000)}k / MWh turnkey`
                 : 'Financial model not available'}
             </p>
           </div>
-        </div>
 
-        {/* Equity NPV Card (total over the project life) */}
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              Equity NPV {financeInfoButton}
-            </span>
-            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
-              {discountRate != null ? `@ ${discountRate}%` : 'Discounted'}
-            </Badge>
-          </div>
-          <div className="mt-3">
+          {/* Equity NPV Card (total over the project life) */}
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Equity NPV {financeInfoButton}
+              </span>
+              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
+                {discountRate != null ? `@ ${discountRate}%` : 'Discounted'}
+              </Badge>
+            </div>
             <div
               className={`text-2xl font-bold font-sans tabular-nums tracking-tight ${
                 activeCase && activeCase.npv_gbp < 0
@@ -349,23 +420,21 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             >
               {activeCase ? gbpM(activeCase.npv_gbp) : '—'}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground">
               {projectLife}-year total{equity != null ? ` · on ${gbpM(equity)} equity` : ''}
             </p>
           </div>
-        </div>
 
-        {/* Internal Rate of Return (IRR) */}
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              Equity IRR {financeInfoButton}
-            </span>
-            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
-              {debtShare != null ? `${debtShare}% debt` : 'Levered'}
-            </Badge>
-          </div>
-          <div className="mt-3">
+          {/* Internal Rate of Return (IRR) */}
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Equity IRR {financeInfoButton}
+              </span>
+              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-semibold">
+                {debtShare != null ? `${debtShare}% debt` : 'Levered'}
+              </Badge>
+            </div>
             <div
               className={`text-2xl font-bold font-sans tabular-nums tracking-tight ${
                 activeIrr == null ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
@@ -373,44 +442,33 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
             >
               {activeIrr != null ? `${activeIrr.toFixed(1)}%` : activeCase ? 'No payback' : '—'}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground">
               Wholesale arbitrage + frequency services
             </p>
           </div>
-        </div>
 
-        {/* Planning & Network Status */}
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
+          {/* Planning: the count of cited risks; the full consenting route is in the Planning section */}
+          <div className="min-w-0 p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between gap-2">
             <span className="text-xs font-medium text-muted-foreground">Planning Consent</span>
             {planning ? (
-              <Badge
-                variant="outline"
-                className={`text-[10px] uppercase font-semibold ${
-                  assessedRisks.length
-                    ? 'text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/30'
-                    : 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+              <div
+                className={`text-2xl font-bold font-sans tabular-nums tracking-tight ${
+                  assessedRisks.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               >
-                {assessedRisks.length} risk{assessedRisks.length === 1 ? '' : 's'}
-                {planningRisks.length > assessedRisks.length && ` · ${planningRisks.length - assessedRisks.length} not assessed`}
-              </Badge>
+                {assessedRisks.length ? `${assessedRisks.length} risk${assessedRisks.length === 1 ? '' : 's'}` : 'No risks found'}
+              </div>
             ) : (
-              land_planning?.planning_risk && (
-                <Badge variant="outline" className="text-[10px] uppercase font-semibold">
-                  {land_planning.planning_risk}
-                </Badge>
-              )
+              <div className="text-base font-bold text-foreground leading-snug line-clamp-2" title={consentingRoute}>
+                {land_planning?.planning_risk || consentingRoute}
+              </div>
             )}
-          </div>
-          <div className="mt-3">
-            <div className="text-base font-bold text-foreground truncate">{consentingRoute}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>
-                Green Belt:{' '}
-                {greenBelt === 'designated' ? 'Designated' : greenBelt === 'unknown' ? 'Not assessed' : 'Clear (No designation)'}
-              </span>
+            {/* One footer line like the other cards; with the planning stage, Green Belt is one of the counted risks */}
+            <p className="text-[11px] text-muted-foreground truncate" title={consentingRoute}>
+              {planning
+                ? [planningCouncil, notAssessedRisks > 0 && `${notAssessedRisks} not assessed`].filter(Boolean).join(' · ') ||
+                  'Local planning consent'
+                : `Green Belt: ${greenBelt === 'designated' ? 'designated' : 'clear'}`}
             </p>
           </div>
         </div>
@@ -930,6 +988,16 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                   : ', plus the loan arrangement fee'}
                 . The NPV and IRR measure the return on this money, not on the full capex.
               </p>
+              {debtMoved && (
+                <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-amber-950 dark:text-amber-200">
+                  <strong>Your input:</strong> debt share {debtPct}%. The model default is {defaultDebtPct}%
+                  {debtSource ? `, from ${debtSource.publisher ?? debtSource.source}` : ''}
+                  {debtSource?.published ? ` (${debtSource.published})` : ''}.{' '}
+                  <button type="button" onClick={() => setDebtPct(defaultDebtPct)} className="underline">
+                    Reset to {defaultDebtPct}%
+                  </button>
+                </div>
+              )}
             </section>
             <section>
               <h4 className="font-semibold text-foreground">
@@ -995,7 +1063,11 @@ export default function ReportView({ result, onReset, siteMap, onRetry, retrying
                     </h5>
                     <ul>
                       {rows.map((s) => (
-                        <SourceRow key={s.key} s={s} />
+                        <SourceRow
+                          key={s.key}
+                          s={s}
+                          override={s.key === 'debt_share_pct' && debtMoved ? `${debtPct}%` : undefined}
+                        />
                       ))}
                     </ul>
                   </div>

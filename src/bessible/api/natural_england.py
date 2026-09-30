@@ -634,7 +634,8 @@ LAYERS: dict[str, LayerSpec[Any]] = {
     "lnr": LayerSpec(SERVICE_LNR, 0, ArcGisGeoJsonResponse[NatureReserveProps]),
     "aonb": LayerSpec(SERVICE_AONB, 0, ArcGisGeoJsonResponse[AonbProps]),
     "national_parks": LayerSpec(SERVICE_NATIONAL_PARKS, 0, ArcGisGeoJsonResponse[NationalParkProps]),
-    "priority_habitats": LayerSpec(SERVICE_PRIORITY_HABITATS, 0, ArcGisGeoJsonResponse[PriorityHabitatProps]),
+    # Republished Sep 2026 with its only layer at id 1 (id 0 now answers 400)
+    "priority_habitats": LayerSpec(SERVICE_PRIORITY_HABITATS, 1, ArcGisGeoJsonResponse[PriorityHabitatProps]),
 }
 
 

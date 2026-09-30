@@ -125,6 +125,21 @@ def test_returns_and_budget():
     assert r_high_budget.over_budget is False
 
 
+def test_returns_by_debt_share():
+    a = load_finance_assumptions()
+    r = returns(cost(4, 10.0, 1.0, crossings=False, a=a), 94000.0, 5.0, 10.0, a)
+    assert [s.debt_share_pct for s in r.by_debt_share] == list(range(0, 81, 5))
+
+    # The row at the assumed debt share repeats the case's own figures
+    default = next(s for s in r.by_debt_share if s.debt_share_pct == a.number("debt_share_pct"))
+    assert (default.npv_gbp, default.irr, default.equity_gbp) == (r.npv_gbp, r.irr, r.equity_gbp)
+
+    # More debt means less equity in; with no debt the investor pays the whole capex
+    equities = [s.equity_gbp for s in r.by_debt_share]
+    assert equities == sorted(equities, reverse=True)
+    assert r.by_debt_share[0].equity_gbp == r.capex_gbp
+
+
 @pytest.mark.anyio
 async def test_financial_stage_end_to_end():
     req = AssessmentRequest(postcode="RH4 1AD", budget_gbp=15_000_000.0)
