@@ -12,13 +12,21 @@ import pytest
 from bessible.api import elexon, neso
 from bessible.api.ckan import DatastoreSearchSqlResponse
 from bessible.market import load_market_assumptions
+from bessible.market.backtest import merchant_rows
 from bessible.market.live import (
+    CHARGE,
+    DISCHARGE,
     ElexonArbitrageSource,
     NesoResponseSource,
     arbitrage_by_duration,
+    central_arbitrage_by_duration,
     daily_spread_revenue,
+    ordered_schedule,
+    perfect_ordered_by_duration,
     prices_by_day,
     response_value,
+    settle,
+    state_of_charge,
 )
 from bessible.market.sources import (
     STREAM_NAMES,
@@ -27,7 +35,7 @@ from bessible.market.sources import (
     RevenueSource,
     default_sources,
 )
-from bessible.market.stack import revenue_stack, total
+from bessible.market.stack import CALIBRATION, revenue_stack, split_mw, total
 from bessible.market.support import qualifying, support_stream
 from bessible.models import (
     AssessmentRequest,
@@ -35,6 +43,7 @@ from bessible.models import (
     ConfirmedSite,
     NodeInput,
     Position,
+    StreamValue,
     TitleOutput,
 )
 from bessible.stages.market import market_revenue
@@ -50,6 +59,7 @@ def test_market_assumptions():
     a = load_market_assumptions()
     assert "capacity_market_derating" in a.entries
     assert "cap_and_floor" in a.entries
+    assert "revenue_benchmark" in a.entries
     assert "ultra_lds" not in a.entries  # a GBP 28m innovation grant, not a per-MW revenue stream
     assert a.number("round_trip_efficiency") == 0.85
     # Every agreed entry names the page it came from
@@ -139,16 +149,108 @@ async def test_market_revenue_stage():
 def test_daily_spread_revenue_known_series():
     # 48 half hours: 8 at 10, 8 at 20, 16 at 50, 8 at 90, 8 at 100 GBP/MWh
     day = [10.0] * 8 + [20.0] * 8 + [50.0] * 16 + [90.0] * 8 + [100.0] * 8
-    # 2h = 4 half hours: top mean 100, bottom mean 10 -> 90 x 2 MWh x 0.85
-    assert daily_spread_revenue(day, 2, 0.85) == pytest.approx(90 * 2 * 0.85)
-    # 4h = 8 half hours: 100 - 10 = 90 -> 90 x 4 x 0.85
-    assert daily_spread_revenue(day, 4, 0.85) == pytest.approx(90 * 4 * 0.85)
-    # 8h = 16 half hours: top mean 95, bottom mean 15 -> 80 x 8 x 0.85
-    assert daily_spread_revenue(day, 8, 0.85) == pytest.approx(80 * 8 * 0.85)
+    # 2h = 4 half hours: buy 2 MWh at 10, sell 2 x 0.85 MWh at 100
+    assert daily_spread_revenue(day, 2, 0.85) == pytest.approx((0.85 * 100 - 10) * 2)
+    assert daily_spread_revenue(day, 4, 0.85) == pytest.approx((0.85 * 100 - 10) * 4)
+    # 8h = 16 half hours: top mean 95, bottom mean 15
+    assert daily_spread_revenue(day, 8, 0.85) == pytest.approx((0.85 * 95 - 15) * 8)
     # Summed over days
     flat = [40.0] * 48
     by_d = arbitrage_by_duration({date(2026, 1, 1): day, date(2026, 1, 2): flat}, 1.0)
     assert by_d == {2: pytest.approx(180.0), 4: pytest.approx(360.0), 8: pytest.approx(640.0)}
+
+
+# An evening peak and a midday trough, with the cheapest hour late at night after the peak
+KNOWN_DAY = [60.0] * 12 + [30.0] * 12 + [40.0] * 10 + [120.0] * 6 + [70.0] * 4 + [5.0] * 4
+
+
+@pytest.mark.parametrize("duration_h", [2, 4, 8])
+def test_dispatch_charges_before_it_discharges(duration_h):
+    schedule = ordered_schedule(KNOWN_DAY, duration_h, 0.85)
+    charges = [i for i, a in enumerate(schedule) if a == CHARGE]
+    discharges = [i for i, a in enumerate(schedule) if a == DISCHARGE]
+    assert charges
+    assert discharges
+    assert max(charges) < min(discharges)
+    # One full cycle: d MWh in, d MWh of discharge time out
+    assert len(charges) == len(discharges) == 2 * duration_h
+
+
+@pytest.mark.parametrize("duration_h", [2, 4, 8])
+def test_state_of_charge_stays_within_limits(duration_h):
+    soc = state_of_charge(ordered_schedule(KNOWN_DAY, duration_h, 0.85))
+    assert min(soc) >= 0
+    assert max(soc) <= duration_h
+    assert soc[-1] == 0  # empty again at the end of the day
+
+
+def test_dispatch_stays_idle_when_no_cycle_pays():
+    assert set(ordered_schedule([50.0] * 48, 2, 0.85)) == {0}
+
+
+def test_central_below_upper_bound_on_known_prices():
+    # The 5 GBP hour comes after the peak, so the unordered bound buys there and the ordered dispatch cannot
+    days = {date(2026, 1, d): [p * (1 + 0.1 * (d % 3)) for p in KNOWN_DAY] for d in range(1, 11)}
+    bound = arbitrage_by_duration(days, 0.85)
+    ordered = perfect_ordered_by_duration(days, 0.85)
+    central, traded = central_arbitrage_by_duration(days, 0.85, first=date(2026, 1, 2))
+    assert traded == 9
+    for d in (2, 4, 8):
+        assert ordered[d] < bound[d]
+        assert central[d] < bound[d]
+
+
+def test_central_decides_without_seeing_the_day():
+    # Yesterday peaked in the evening; today's peak moves to the morning. A day-ahead plan misses it.
+    yesterday = [20.0] * 36 + [100.0] * 12
+    today = [100.0] * 12 + [20.0] * 36
+    central, _ = central_arbitrage_by_duration({date(2026, 1, 1): yesterday, date(2026, 1, 2): today}, 1.0)
+    planned = ordered_schedule(yesterday, 2, 1.0)
+    assert central[2] == pytest.approx(settle(today, planned, 1.0))
+    assert central[2] < perfect_ordered_by_duration({date(2026, 1, 2): today}, 1.0)[2]
+
+
+@pytest.mark.anyio
+async def test_wholesale_and_ancillary_never_exceed_the_mw():
+    stack = await revenue_stack(20.0, fixture_sources(), load_market_assumptions())
+    for rows in stack.values():
+        shares = {r.stream: r.mw_share for r in rows if r.mw_share is not None}
+        assert set(shares) == {"wholesale", "balancing_ancillary"}
+        assert sum(shares.values()) <= 1.0 + 1e-9
+        w = next(r for r in rows if r.stream == "wholesale")
+        assert w.upper_bound_gbp_per_mw_year is not None
+        assert w.gbp_per_mw_year < w.upper_bound_gbp_per_mw_year
+
+
+def test_split_mw_with_a_full_share():
+    base = {"source": "s", "source_url": "https://example.com", "as_of": date(2026, 1, 1), "cached": False}
+    rows = [
+        StreamValue(stream="balancing_ancillary", gbp_per_mw_year=10.0, mw_share=1.0, **base),
+        StreamValue(stream="wholesale", gbp_per_mw_year=50.0, upper_bound_gbp_per_mw_year=80.0, **base),
+    ]
+    w = next(r for r in split_mw(rows) if r.stream == "wholesale")
+    assert w.mw_share == 0.0
+    assert w.gbp_per_mw_year == 0.0
+    assert w.upper_bound_gbp_per_mw_year == 0.0
+
+
+@pytest.mark.anyio
+async def test_benchmark_calibration_row_and_artifact():
+    a = load_market_assumptions()
+    for key in ("revenue_benchmark", CALIBRATION):
+        entry = a.entry(key)
+        assert entry.source_url
+        assert entry.quote
+        assert entry.published
+    assert a.entry(CALIBRATION).derivation
+    out = await market_revenue(_node_input())
+    assert CALIBRATION in out.streams
+    art = next(x for x in out.artifacts if x.id.startswith("market-backtest"))
+    assert "73,145" in art.claim
+    assert "before calibration" in art.claim
+    wholesale = next(x for x in out.artifacts if x.id.startswith("market-wholesale"))
+    assert "central estimate" in wholesale.claim
+    assert "Upper bound" in wholesale.claim
 
 
 def test_prices_by_day_from_real_elexon_response():
@@ -194,7 +296,7 @@ async def test_live_sources_use_the_day_cache(tmp_path, monkeypatch):
     assert w.cached is False
     assert b.cached is False
     assert w.method
-    assert "upper bound" in w.method
+    assert w.method.startswith("central")
     assert b.period
 
 
@@ -244,3 +346,13 @@ def _node_input() -> NodeInput:
     )
     site = ConfirmedSite(position=Position(lat=51.23, lon=-0.33), capacity_mw=15.0, boundary=title)
     return NodeInput(run_id="run-mkt-test", request=req, site=site, capacity=cap)
+
+
+@pytest.mark.anyio
+async def test_backtest_uses_the_stack_split():
+    wholesale, ancillary = FixtureSource("wholesale"), FixtureSource("balancing_ancillary")
+    rows = await merchant_rows(wholesale, ancillary, 2)
+    w_full = (await wholesale.fetch(2)).gbp_per_mw_year
+    anc = await ancillary.fetch(2)
+    assert anc.mw_share is not None
+    assert total(rows) == pytest.approx(w_full * (1 - anc.mw_share) + anc.gbp_per_mw_year)

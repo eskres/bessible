@@ -1,17 +1,23 @@
 {
   "stream": "wholesale",
   "source": "Elexon Insights, Market Index Data (APX), half-hourly GB prices",
-  "source_url": "https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-27&to=2026-09-26&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP",
-  "as_of": "2026-09-27",
-  "period": "2025-09-27 to 2026-09-26 (364 complete settlement days)",
-  "method": "upper bound: perfect foresight, one full cycle per day; per day (mean of the top d hours' price - mean of the bottom d hours' price) x d MWh per MW x round-trip efficiency 0.85, summed over the days; charge and discharge hours are not forced into order",
-  "derivation": "17520 APX rows from https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-27&to=2026-09-26&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP; 364 days with >= 44 priced half hours kept; 2h: GBP 44,705/MW/yr, 4h: GBP 79,704/MW/yr, 8h: GBP 120,972/MW/yr",
+  "source_url": "https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-22&to=2026-09-28&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP",
+  "as_of": "2026-09-29",
+  "period": "2025-09-29 to 2026-09-28 (364 complete settlement days)",
+  "method": "central: one full cycle per day, planned without seeing the day's prices. Each day is planned on the mean half-hourly price shape of the 7 days before it: charge d MWh per MW in the cheapest half hours before a split, discharge in the dearest half hours after it (charging always comes first), and stay idle if the plan does not pay. The plan is settled at the day's actual prices, selling round-trip efficiency 0.85 x the energy bought. Upper bound for context: perfect foresight, cheapest d hours bought and dearest d hours sold, in any order",
+  "derivation": "17856 APX rows from https://data.elexon.co.uk/bmrs/api/v1/datasets/MID/stream?from=2025-09-22&to=2026-09-28&settlementPeriodFrom=1&settlementPeriodTo=50&dataProviders=APXMIDP; 364 days with >= 44 priced half hours in the window, 364 traded (the 7 days before the window are history only); 2h: central GBP 26,294, ordered perfect foresight GBP 36,315, upper bound GBP 38,484 per MW/yr (central = 68% of the bound); 4h: central GBP 45,229, ordered perfect foresight GBP 62,170, upper bound GBP 66,453 per MW/yr (central = 68% of the bound); 8h: central GBP 47,279, ordered perfect foresight GBP 70,648, upper bound GBP 91,300 per MW/yr (central = 52% of the bound)",
   "gbp_per_mw_year_by_duration": {
-    "2": 44705.0,
-    "4": 79704.0,
-    "8": 120972.0
+    "2": 26294.0,
+    "4": 45229.0,
+    "8": 47279.0
   },
+  "upper_bound_by_duration": {
+    "2": 38484.0,
+    "4": 66453.0,
+    "8": 91300.0
+  },
+  "mw_share": null,
   "status": "agreed",
-  "note": "Snapshot of the live computation on 2026-09-27 (bessible.market.refresh). Served only when the live source fails, and then flagged cached.",
-  "cross_check": "Modo Energy, \"How does a battery energy storage system make money?\", Neil Weaver, 19 May 2026 (updated 21 May 2026), https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money: \"In GB, wholesale and Balancing Mechanism revenues together averaged £43,829/MW/year over the twelve months to April 2026.\" Not the same measure as ours: it includes Balancing Mechanism revenue, covers realised (not perfect-foresight) trading, a different period, and states no duration. The same page gives \"A typical two-hour GB BESS earned £73,145/MW/year over the twelve months to April 2026.\"; the page also says \"Two-hour GB BESS revenue averaged £73,145/MW/year over the twelve months to April 2026, with wholesale and Balancing Mechanism revenues making up around 60% of the stack\" (in the page HTML twice, in a summary block). £43,829 / £73,145 = 59.9%, so £43,829 matches the 2h stack, but the sentence giving £43,829 itself names no duration."
+  "note": "Snapshot of the live computation on 2026-09-29 (bessible.market.refresh). Served only when the live source fails, and then flagged cached.",
+  "cross_check": "Modo Energy, \"How does a battery energy storage system make money?\", Neil Weaver, 19 May 2026 (updated 21 May 2026), https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money: \"In GB, wholesale and Balancing Mechanism revenues together averaged £43,829/MW/year over the twelve months to April 2026.\" Not the same measure as ours: it includes Balancing Mechanism revenue, which this stream does not trade (see benchmark_calibration in data/assumptions/market.json), covers realised trading by the whole fleet, a different period, and states no duration. The same page gives \"A typical two-hour GB BESS earned £73,145/MW/year over the twelve months to April 2026.\"; the page also says \"Two-hour GB BESS revenue averaged £73,145/MW/year over the twelve months to April 2026, with wholesale and Balancing Mechanism revenues making up around 60% of the stack\" (in the page HTML twice, in a summary block). £43,829 / £73,145 = 59.9%, so £43,829 matches the 2h stack, but the sentence giving £43,829 itself names no duration."
 }
