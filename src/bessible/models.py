@@ -430,6 +430,8 @@ class StreamValue(BaseModel):
     scheme: str | None = None
     method: str | None = None  # how the figure was computed, for the artifact claim
     period: str | None = None  # the data period it covers
+    upper_bound_gbp_per_mw_year: float | None = None  # a perfect-foresight bound, for context; never summed
+    mw_share: float | None = None  # share of the MW this stream uses, where streams compete for it
 
 
 class MarketOutput(BaseModel):

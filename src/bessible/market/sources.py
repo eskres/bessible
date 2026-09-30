@@ -48,6 +48,8 @@ class Fixture(BaseModel):
     derivation: str | None = None  # the arithmetic, if any
     cross_check: str | None = None  # an outside figure to compare against, never used in the stack
     gbp_per_mw_year_by_duration: dict[str, float]
+    upper_bound_by_duration: dict[str, float] | None = None
+    mw_share: float | None = None
 
 
 class FixtureSource:
@@ -71,6 +73,8 @@ class FixtureSource:
             placeholder=fixture.status == "placeholder",
             method=fixture.method,
             period=fixture.period,
+            upper_bound_gbp_per_mw_year=(fixture.upper_bound_by_duration or {}).get(str(duration_h)),
+            mw_share=fixture.mw_share,
         )
 
 

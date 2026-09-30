@@ -9,7 +9,11 @@
     "status": "agreed"
   },
   "capacity_market_derating": {
-    "value": {"2": 0.2198, "4": 0.4396, "8": 0.8777},
+    "value": {
+      "2": 0.2198,
+      "4": 0.4396,
+      "8": 0.8777
+    },
     "unit": "factor (de-rated MW per connected MW)",
     "source": "NESO Capacity Market Register, Capacity Market De-Rating Factors (resource d94ff98d-39ba-40d6-9672-7433de0631ac), 2029-30 (T-4) Four Year Ahead Capacity Auction",
     "source_url": "https://www.neso.energy/data-portal/capacity-market-register/capacity_market_de-rating_factors",
@@ -19,13 +23,48 @@
     "status": "agreed"
   },
   "cap_and_floor": {
-    "value": {"min_duration_h": 8, "min_mw": 100, "gbp_per_mw_year": 0},
+    "value": {
+      "min_duration_h": 8,
+      "min_mw": 100,
+      "gbp_per_mw_year": 0
+    },
     "unit": "rules and GBP/MW/year",
     "source": "Ofgem, Eligibility Criteria Assessment Framework for LDES window one (OFG1164, 8 April 2025)",
     "source_url": "https://www.ofgem.gov.uk/sites/default/files/2025-04/Eligibility%20criteria%20assessment%20framework%20LDES%20window%201.pdf",
     "quote": "Evidence (and related reasoning) that the scheme can maintain a minimum discharge capacity of at least 100MW (stream 1) or 50MW (stream 2). ... Duration Requirement ... 8 hours at full power.",
-    "note": "Rules are real (stream 1 = established technologies such as lithium-ion). The GBP value is NOT published: the cap and floor are set per project in Ofgem's assessment (window 1 minded-to decision, Ofgem press release 26 June 2026 https://www.ofgem.gov.uk/press-release/ofgem-boosts-long-duration-storage-secure-more-homegrown-energy-customers: 16 projects, final decisions \"later this year\"), and the floor only pays when a project's revenue falls below it. So 0 is added to revenue; the row only marks that the site is eligible to apply.",
+    "note": "Rules are real (stream 1 = established technologies such as lithium-ion). The GBP value is NOT published: the cap and floor are set per project in Ofgem's assessment (window 1 minded-to decision, Ofgem press release 26 June 2026 https://www.ofgem.gov.uk/press-release/ofgem-boosts-long-duration-storage-secure-more-homegrown-energy-customers: 16 projects, final decisions \"later this year\"), and the floor only pays when a project's revenue falls below it. So 0 is added to revenue; the row only marks that the site is eligible to apply. Checked again 2026-09-29: Ofgem has published only the window 1 minded-to decision (26 June 2026, consultation closed 7 August 2026); no final determination and no per-project cap or floor levels found.",
     "date": "2025-04-08",
     "status": "placeholder"
+  },
+  "revenue_benchmark": {
+    "value": {
+      "duration_h": 2,
+      "total_gbp_per_mw_year": 73145,
+      "capacity_market_gbp_per_mw_year": 7454
+    },
+    "unit": "GBP/MW/year (fleet average, GB BESS)",
+    "source": "Modo Energy, \"How does a battery energy storage system make money?\" (Neil Weaver), GB BESS revenue over the twelve months to April 2026",
+    "source_url": "https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money",
+    "publisher": "Modo Energy",
+    "published": "2026-05-21",
+    "quote": "A typical two-hour GB BESS earned £73,145/MW/year over the twelve months to April 2026 (Modo Energy, 2026). ... Over the twelve months to April 2026, the Capacity Market contributed an average of £7,454/MW/year to GB BESS revenue, or roughly 10% of the stack (Modo Energy, 2026).",
+    "note": "Realised revenue of the GB fleet, all streams (wholesale, Balancing Mechanism, frequency response, Capacity Market). Period May 2025 to April 2026. Published 19 May 2026, updated 21 May 2026. No 4h or 8h figure on the page, so only the 2h stack is back-tested. Compared without the Capacity Market, because the fleet's agreements come from earlier auctions and the stack prices a new build in the 2029/30 T-4. Where Modo gets it: the page cites https://modoenergy.com/public-indices for all three figures, i.e. the ME BESS GB (2H) index (id 421). Methodology (https://modoenergy.com/methodology/gb): BMU batteries of 6 MW or more with a system duration of more than 1.5 h and less than 2.5 h, revenue rebuilt from public market data (frequency response, wholesale, Balancing Mechanism, reserve, Capacity Market, imbalance), annualised as the period total / days x 365. Modo publishes GB, 1H and 2H indices only, so there is no 4h or 8h benchmark. The public page shows only the latest daily value; the index history is not public (on 2026-09-30 the page's data-api path returned the web app, not data), so the 12-month figure cannot be pulled automatically. To refresh: when Modo publishes a newer 12-month 2H figure, update this entry and BENCHMARK_LAST_DAY in bessible/market/backtest.py, run `uv run python -m bessible.market.backtest`, and copy the gap into benchmark_calibration.",
+    "date": "2026-09-29",
+    "status": "agreed"
+  },
+  "benchmark_calibration": {
+    "value": {
+      "gbp_per_mw_year": 27994
+    },
+    "unit": "GBP/MW/year, added to every duration",
+    "source": "Back-test of the modelled 2h stack against the Modo Energy GB BESS benchmark (revenue_benchmark), same period (bessible.market.backtest)",
+    "source_url": "https://modoenergy.com/research/en/how-does-battery-energy-storage-make-money",
+    "publisher": "Modo Energy (benchmark); bessible (back-test)",
+    "published": "2026-05-21",
+    "quote": "A typical two-hour GB BESS earned £73,145/MW/year over the twelve months to April 2026 (Modo Energy, 2026). ... Over the twelve months to April 2026, the Capacity Market contributed an average of £7,454/MW/year to GB BESS revenue",
+    "derivation": "uv run python -m bessible.market.backtest on 2026-09-29, as of 2026-05-01: wholesale central 2h GBP 21,755/MW/yr (Elexon APX 2025-05-01 to 2026-04-30, 364 days) x (1 - ancillary share 0.416) + ancillary GBP 24,996/MW/yr (NESO DC/DM/DR, delivery 2025-05-01 to 2026-05-01) = GBP 37,697; benchmark without Capacity Market 73,145 - 7,454 = GBP 65,691; modelled = 57% of the benchmark; gap 65,691 - 37,697 = GBP 27,994/MW/yr. Even the perfect-foresight bound (2h GBP 34,195 x 0.584 + 24,996 = GBP 44,965) falls short, so the gap is revenue the model does not trade, not optimism in the dispatch.",
+    "note": "The model trades one day-ahead-planned cycle per day on half-hourly index prices; the fleet also earns in the Balancing Mechanism and in intraday trading. This row adds that gap as one sourced figure instead of scaling every stream. The benchmark is 2h only: the same GBP/MW is added at 4h and 8h (Balancing Mechanism pay is mostly per MW of power), which is an assumption, not a measurement.",
+    "date": "2026-09-29",
+    "status": "agreed"
   }
 }

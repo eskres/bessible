@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+from pydantic import HttpUrl
+
+from bessible.assumptions import AssumptionSet
 from bessible.market import load_market_assumptions
 from bessible.market.sources import default_sources
-from bessible.market.stack import revenue_stack, total
+from bessible.market.stack import CALIBRATION, revenue_stack, total
 from bessible.models import Artifact, DataGap, MarketOutput, NodeInput, StreamValue
 
 
@@ -40,6 +45,7 @@ async def market_revenue(inp: NodeInput) -> MarketOutput:
                     model_used="market-assumptions",
                 )
             )
+    artifacts.append(_benchmark_artifact(stack, a, inp.run_id))
 
     return MarketOutput(
         revenue_gbp_per_mw_year=revenue_4h,
@@ -67,35 +73,74 @@ def _gaps(stack: dict[int, list[StreamValue]]) -> list[DataGap]:
     return list(gaps.values())
 
 
-# How far the method itself can be trusted, before live/cached/placeholder: a published auction price is exact;
-# arbitrage is a perfect-foresight upper bound; ancillary rests on an estimated participation share.
-METHOD_CONFIDENCE = {"capacity_market": 0.95, "wholesale": 0.7, "balancing_ancillary": 0.6}
+# How far the method itself can be trusted, before live/cached/placeholder: a published auction price is exact; the
+# wholesale dispatch is computed on a full year of prices but plans one cycle a day on a simple forecast; ancillary
+# rests on an estimated participation share; the calibration is one 2h benchmark, carried to 4h and 8h.
+METHOD_CONFIDENCE = {"capacity_market": 0.95, "wholesale": 0.75, "balancing_ancillary": 0.6, CALIBRATION: 0.5}
 CACHED_PENALTY = 0.1
+STALE_DAYS = 90  # a snapshot older than this loses another STALE_PENALTY
+STALE_PENALTY = 0.1
 PLACEHOLDER_CONFIDENCE = 0.3
 LIVE_STREAMS = {"wholesale", "balancing_ancillary"}  # the rest are committed by design, so "cached" is expected
 
 
 def _confidence(val: StreamValue) -> float:
-    """Confidence from the method, then lowered for a cached snapshot, and floored for a placeholder."""
+    """Confidence from the method, lowered for a cached snapshot and again for a stale one, floored for a placeholder."""
     if val.placeholder:
         return PLACEHOLDER_CONFIDENCE
-    base = METHOD_CONFIDENCE.get(val.stream, 0.8)
-    return round(base - CACHED_PENALTY, 2) if val.cached and val.stream in LIVE_STREAMS else base
+    conf = METHOD_CONFIDENCE.get(val.stream, 0.8)
+    if val.cached and val.stream in LIVE_STREAMS:
+        conf -= CACHED_PENALTY
+        if (datetime.now(UTC).date() - val.as_of).days > STALE_DAYS:
+            conf -= STALE_PENALTY
+    return round(conf, 2)
 
 
 def _claim(val: StreamValue, duration_h: int) -> str:
-    """Say live or cached, the method, the period covered and the source."""
+    """Say the central figure, live or cached, the upper bound, the MW share, the method, the period and the source."""
     name = val.scheme or val.stream.replace("_", " ").capitalize()
     if val.stream in LIVE_STREAMS:
         freshness = f"cached snapshot from {val.as_of.isoformat()} (live source failed)" if val.cached else "live"
     else:
         freshness = f"committed data, published {val.as_of.isoformat()}"
-    parts = [f"{name}: £{val.gbp_per_mw_year:,.0f}/MW/year ({duration_h}h basis), {freshness}."]
+    parts = [f"{name}: £{val.gbp_per_mw_year:,.0f}/MW/year central estimate ({duration_h}h basis), {freshness}."]
     if val.placeholder:
         parts.append("PLACEHOLDER value.")
+    if val.upper_bound_gbp_per_mw_year is not None:
+        parts.append(
+            f"Upper bound for context (perfect foresight, not used): £{val.upper_bound_gbp_per_mw_year:,.0f}/MW/year."
+        )
+    if val.mw_share is not None:
+        parts.append(f"Uses {val.mw_share:.0%} of the MW.")
     if val.method:
         parts.append(f"Method: {val.method}.")
     if val.period:
         parts.append(f"Period: {val.period}.")
     parts.append(f"Source: {val.source}.")
     return " ".join(parts)
+
+
+def _benchmark_artifact(stack: dict[int, list[StreamValue]], a: AssumptionSet, run_id: str) -> Artifact:
+    """Modelled stack vs the published GB BESS benchmark, and the back-test that sized the calibration."""
+    bench = a.entry("revenue_benchmark")
+    b = a.mapping("revenue_benchmark")
+    d = int(b["duration_h"])
+    rows = stack.get(d, [])
+    modelled = total(rows)
+    uncalibrated = total([r for r in rows if r.stream != CALIBRATION])
+    totals = ", ".join(f"{h}h £{total(r):,.0f}" for h, r in sorted(stack.items()))
+    claim = (
+        f"Back-test against {bench.source}: £{b['total_gbp_per_mw_year']:,.0f}/MW/year for a {d}h GB battery. "
+        f"This run models {d}h at "
+        f"£{uncalibrated:,.0f}/MW/year before calibration ({uncalibrated / b['total_gbp_per_mw_year']:.0%} of it) and "
+        f"£{modelled:,.0f} after ({modelled / b['total_gbp_per_mw_year']:.0%}). Calibration, on the benchmark's own "
+        f"period: {a.entry(CALIBRATION).derivation} Stack totals: {totals}."
+    )
+    return Artifact(
+        id=f"market-backtest-{run_id[:8]}",
+        stage="market",
+        claim=claim,
+        source_url=HttpUrl(bench.source_url or ""),
+        confidence=METHOD_CONFIDENCE[CALIBRATION],
+        model_used="market-assumptions",
+    )

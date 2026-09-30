@@ -48,7 +48,9 @@ class LiveFigure(BaseModel):
     period: str
     method: str
     derivation: str
-    gbp_per_mw_year_by_duration: dict[str, float]
+    gbp_per_mw_year_by_duration: dict[str, float]  # the central figure, for 100% of the MW
+    upper_bound_by_duration: dict[str, float] | None = None  # perfect foresight, for context only
+    mw_share: float | None = None  # share of the MW the stream uses (ancillary); the stack gives wholesale the rest
 
 
 def _cached(name: str, today: date) -> LiveFigure | None:
@@ -88,6 +90,8 @@ def _to_stream(figure: LiveFigure, duration_h: int) -> StreamValue:
         cached=False,
         method=figure.method,
         period=figure.period,
+        upper_bound_gbp_per_mw_year=(figure.upper_bound_by_duration or {}).get(str(duration_h)),
+        mw_share=figure.mw_share,
     )
 
 
@@ -95,13 +99,15 @@ def _to_stream(figure: LiveFigure, duration_h: int) -> StreamValue:
 
 
 def daily_spread_revenue(prices: list[float], duration_h: int, rte: float) -> float:
-    """One day's arbitrage in GBP per MW: (mean of top `d` hours - mean of bottom `d` hours) x d MWh x RTE.
+    """One day's perfect-foresight upper bound in GBP per MW, charging and discharging in any order.
+
+    Buys `d` MWh in the cheapest `d` hours and sells `d` x RTE MWh in the dearest `d` hours.
 
     `prices` are the day's half-hourly prices in GBP/MWh, so `d` hours are `2d` half hours.
     """
     n = 2 * duration_h
     ranked = sorted(prices)
-    return (fmean(ranked[-n:]) - fmean(ranked[:n])) * duration_h * rte
+    return (rte * fmean(ranked[-n:]) - fmean(ranked[:n])) * duration_h
 
 
 def arbitrage_by_duration(
@@ -111,26 +117,114 @@ def arbitrage_by_duration(
     return {d: sum(daily_spread_revenue(p, d, rte) for p in days.values()) for d in durations}
 
 
+CHARGE, IDLE, DISCHARGE = 1, 0, -1
+FORECAST_DAYS = 7  # the central dispatch plans each day on the mean price shape of the 7 days before it
+
+
+def ordered_schedule(profile: list[float], duration_h: int, rte: float) -> list[int]:
+    """One full cycle planned on a price profile, charging first; all idle if no cycle pays.
+
+    Charges in the cheapest `2d` half hours before a split and discharges in the dearest `2d` after it, at the split
+    that pays most.
+
+    Every charge comes before every discharge, so state of charge rises from empty to full and back once.
+    """
+    n = 2 * duration_h
+    best: list[int] = [IDLE] * len(profile)
+    best_value = 0.0
+    for split in range(n, len(profile) - n + 1):
+        charge = sorted(range(split), key=lambda i: profile[i])[:n]
+        discharge = sorted(range(split, len(profile)), key=lambda i: profile[i])[-n:]
+        value = rte * sum(profile[i] for i in discharge) - sum(profile[i] for i in charge)
+        if value > best_value:
+            best_value = value
+            best = [IDLE] * len(profile)
+            for i in charge:
+                best[i] = CHARGE
+            for i in discharge:
+                best[i] = DISCHARGE
+    return best
+
+
+def state_of_charge(schedule: list[int]) -> list[float]:
+    """MWh drawn from the grid and not yet sold back, per MW, after each half hour (charge at full power)."""
+    soc, path = 0.0, []
+    for action in schedule:
+        soc += 0.5 * action
+        path.append(soc)
+    return path
+
+
+def settle(prices: list[float], schedule: list[int], rte: float) -> float:
+    """GBP per MW that a schedule earns at the day's actual prices: pay for charging, sell RTE x the energy."""
+    return sum(0.5 * (-p if a == CHARGE else rte * p) for p, a in zip(prices, schedule, strict=False) if a != IDLE)
+
+
+def price_shape(history: list[list[float]], length: int) -> list[float]:
+    """Mean price per half hour over earlier days, stretched or cut to `length` periods (clock-change days)."""
+    return [fmean(day[min(i, len(day) - 1)] for day in history) for i in range(length)]
+
+
+def central_arbitrage_by_duration(
+    days: dict[date, list[float]],
+    rte: float,
+    first: date | None = None,
+    durations: Iterable[int] = REQUIRED_DURATION_HOURS,
+) -> tuple[dict[int, float], int]:
+    """Wholesale arbitrage a battery could earn without seeing the day's prices, per duration, in GBP per MW.
+
+    Each day is planned on the mean price shape of up to `FORECAST_DAYS` days before it (`ordered_schedule`) and
+    settled at that day's actual prices, so a wrong plan can lose money. Days before `first`, or with no earlier day,
+    are only history. Returns the totals and the number of days traded.
+    """
+    ordered = sorted(days)
+    totals = dict.fromkeys(durations, 0.0)
+    traded = 0
+    for k, day in enumerate(ordered):
+        history = [days[d] for d in ordered[max(0, k - FORECAST_DAYS) : k]]
+        if not history or (first is not None and day < first):
+            continue
+        traded += 1
+        shape = price_shape(history, len(days[day]))
+        for d in totals:
+            totals[d] += settle(days[day], ordered_schedule(shape, d, rte), rte)
+    return totals, traded
+
+
+def perfect_ordered_by_duration(
+    days: dict[date, list[float]], rte: float, durations: Iterable[int] = REQUIRED_DURATION_HOURS
+) -> dict[int, float]:
+    """Wholesale arbitrage with perfect foresight but charge-before-discharge, per duration, in GBP per MW."""
+    return {d: sum(settle(p, ordered_schedule(p, d, rte), rte) for p in days.values()) for d in durations}
+
+
 def prices_by_day(records: list[elexon.MarketIndexRecord], start: date, end: date) -> dict[date, list[float]]:
-    """APX half-hourly prices per settlement day in [start, end]; periods with no volume and short days dropped."""
-    days: dict[date, list[float]] = defaultdict(list)
+    """APX half-hourly prices per settlement day in [start, end], in settlement-period order.
+
+    Periods with no volume, and days left short by them, are dropped.
+    """
+    days: dict[date, list[tuple[int, float]]] = defaultdict(list)
     for r in records:
         if r.data_provider == elexon.APX and r.volume > 0 and start <= r.settlement_date <= end:
-            days[r.settlement_date].append(r.price)
-    return {d: p for d, p in sorted(days.items()) if len(p) >= MIN_PERIODS_PER_DAY}
+            days[r.settlement_date].append((r.settlement_period, r.price))
+    return {d: [p for _, p in sorted(p)] for d, p in sorted(days.items()) if len(p) >= MIN_PERIODS_PER_DAY}
 
 
 class ElexonArbitrageSource:
-    """Wholesale arbitrage upper bound from the last 365 days of GB market index prices (Elexon MID, APX)."""
+    """Wholesale arbitrage from the last 365 days of GB market index prices (Elexon MID, APX).
+
+    The central figure is a dispatch a real battery could run (`central_arbitrage_by_duration`); the perfect-foresight
+    upper bound is kept beside it for context.
+    """
 
     name = "elexon_mid_arbitrage"
 
     def __init__(self, a: AssumptionSet, today: date | None = None) -> None:
-        """`a` is the market assumptions (round-trip efficiency); `today` is for tests."""
+        """`a` is the market assumptions (round-trip efficiency); `today` is for tests and back-tests."""
         self.rte = a.number("round_trip_efficiency")
         self.today = today
 
-    async def figure(self) -> LiveFigure:
+    async def figure(self) -> LiveFigure:  # ruff: ignore[too-many-locals] - each local is one derivation fact
         """Today's figure, from the cache or from one Elexon call."""
         today = self.today or datetime.now(UTC).date()
         if hit := _cached("wholesale", today):
@@ -138,18 +232,30 @@ class ElexonArbitrageSource:
         end = today - timedelta(days=1)
         start = end - timedelta(days=WINDOW_DAYS - 1)
         req = elexon.MarketIndexStreamRequest(
-            from_=start, to=end, settlement_period_from=1, settlement_period_to=50, data_providers=[elexon.APX]
+            from_=start - timedelta(days=FORECAST_DAYS),
+            to=end,
+            settlement_period_from=1,
+            settlement_period_to=50,
+            data_providers=[elexon.APX],
         )
         async with httpx.AsyncClient(timeout=TIMEOUT_S, headers={"User-Agent": "bessible"}) as client:
             r = await client.get(req.URL, params=req.params())
             r.raise_for_status()
         records = elexon.MarketIndexStreamResponse.model_validate(r.json()).root
-        days = prices_by_day(records, start, end)
+        with_history = prices_by_day(records, start - timedelta(days=FORECAST_DAYS), end)
+        days = {d: p for d, p in with_history.items() if d >= start}
         if len(days) < WINDOW_DAYS - 30:
             msg = f"Elexon MID returned only {len(days)} complete days for {start}..{end}"
             raise ValueError(msg)
-        by_d = arbitrage_by_duration(days, self.rte)
+        central, traded = central_arbitrage_by_duration(with_history, self.rte, first=start)
+        ordered = perfect_ordered_by_duration(days, self.rte)
+        bound = arbitrage_by_duration(days, self.rte)
         url = str(httpx.URL(req.URL, params=req.params()))
+        per_d = "; ".join(
+            f"{d}h: central GBP {central[d]:,.0f}, ordered perfect foresight GBP {ordered[d]:,.0f}, upper bound "
+            f"GBP {bound[d]:,.0f} per MW/yr (central = {central[d] / bound[d]:.0%} of the bound)"
+            for d in REQUIRED_DURATION_HOURS
+        )
         figure = LiveFigure(
             stream="wholesale",
             source="Elexon Insights, Market Index Data (APX), half-hourly GB prices",
@@ -157,15 +263,20 @@ class ElexonArbitrageSource:
             as_of=today,
             period=f"{min(days)} to {max(days)} ({len(days)} complete settlement days)",
             method=(
-                "upper bound: perfect foresight, one full cycle per day; per day (mean of the top d hours' price - "
-                f"mean of the bottom d hours' price) x d MWh per MW x round-trip efficiency {self.rte:g}, summed "
-                "over the days; charge and discharge hours are not forced into order"
+                "central: one full cycle per day, planned without seeing the day's prices. Each day is planned on "
+                f"the mean half-hourly price shape of the {FORECAST_DAYS} days before it: charge d MWh per MW in the "
+                "cheapest half hours before a split, discharge in the dearest half hours after it (charging always "
+                "comes first), and stay idle if the plan does not pay. The plan is settled at the day's actual "
+                f"prices, selling round-trip efficiency {self.rte:g} x the energy bought. Upper bound for context: "
+                "perfect foresight, cheapest d hours bought and dearest d hours sold, in any order"
             ),
             derivation=(
-                f"{len(records)} APX rows from {url}; {len(days)} days with >= {MIN_PERIODS_PER_DAY} priced "
-                "half hours kept; " + ", ".join(f"{d}h: GBP {v:,.0f}/MW/yr" for d, v in by_d.items())
+                f"{len(records)} APX rows from {url}; {len(days)} days with >= {MIN_PERIODS_PER_DAY} priced half "
+                f"hours in the window, {traded} traded (the {FORECAST_DAYS} days before the window are history "
+                f"only); {per_d}"
             ),
-            gbp_per_mw_year_by_duration={str(d): round(v) for d, v in by_d.items()},
+            gbp_per_mw_year_by_duration={str(d): round(v) for d, v in central.items()},
+            upper_bound_by_duration={str(d): round(v) for d, v in bound.items()},
         )
         _store("wholesale", today, figure)
         return figure
@@ -268,7 +379,8 @@ class NesoResponseSource:
             method=(
                 "mean clearing price of each service over the period, Low + High frequency sides stacked for one "
                 "symmetric MW, weighted by cleared volume across DC/DM/DR, x 8,760 h, x participation share = "
-                "mean cleared MW / GB operational battery MW (REPD); same for every duration"
+                "mean cleared MW / GB operational battery MW (REPD); same for every duration. That share of the MW "
+                "is held for frequency response, so it is not available for wholesale trading"
             ),
             derivation=(
                 f"GBP/MW/h (L+H): {prices}; mean cleared MW: {volumes}; volume-weighted "
@@ -279,6 +391,7 @@ class NesoResponseSource:
                 f"resources {', '.join(resource_ids)}"
             ),
             gbp_per_mw_year_by_duration={str(d): round(gbp) for d in REQUIRED_DURATION_HOURS},
+            mw_share=round(v.share, 4),
         )
         _store("balancing_ancillary", today, figure)
         return figure

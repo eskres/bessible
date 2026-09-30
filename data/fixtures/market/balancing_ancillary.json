@@ -2,15 +2,17 @@
   "stream": "balancing_ancillary",
   "source": "NESO EAC auction results (Dynamic Containment, Moderation, Regulation)",
   "source_url": "https://www.neso.energy/data-portal/eac-auction-results",
-  "as_of": "2026-09-27",
-  "period": "delivery 2025-09-27 to 2026-09-27",
-  "method": "mean clearing price of each service over the period, Low + High frequency sides stacked for one symmetric MW, weighted by cleared volume across DC/DM/DR, x 8,760 h, x participation share = mean cleared MW / GB operational battery MW (REPD); same for every duration",
-  "derivation": "GBP/MW/h (L+H): DC 4.78, DM 7.18, DR 8.90; mean cleared MW: DC 1,190, DM 521, DR 489; volume-weighted 6.26 GBP/MW/h; share 2,200 MW / 4,956 MW = 0.444 (REPD https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv: 150 of 178 Operational Battery records carry MW, so the fleet is undercounted and the share is high); 6.26 x 8760 x 0.444 = GBP 24,353/MW/yr; resources 596f29ac-0387-4ba4-a6d3-95c243140707, be55ee51-b79e-47da-b71e-a0f8865d9d66",
+  "as_of": "2026-09-29",
+  "period": "delivery 2025-09-29 to 2026-09-29",
+  "method": "mean clearing price of each service over the period, Low + High frequency sides stacked for one symmetric MW, weighted by cleared volume across DC/DM/DR, x 8,760 h, x participation share = mean cleared MW / GB operational battery MW (REPD); same for every duration. That share of the MW is held for frequency response, so it is not available for wholesale trading",
+  "derivation": "GBP/MW/h (L+H): DC 4.81, DM 7.23, DR 8.94; mean cleared MW: DC 1,192, DM 522, DR 489; volume-weighted 6.30 GBP/MW/h; share 2,202 MW / 4,956 MW = 0.444 (REPD https://assets.publishing.service.gov.uk/media/6a6cbdc00c36759b5ccaa305/REPD_Publication_Q2_2026.csv: 150 of 178 Operational Battery records carry MW, so the fleet is undercounted and the share is high); 6.30 x 8760 x 0.444 = GBP 24,525/MW/yr; resources 596f29ac-0387-4ba4-a6d3-95c243140707, be55ee51-b79e-47da-b71e-a0f8865d9d66",
   "gbp_per_mw_year_by_duration": {
-    "2": 24353.0,
-    "4": 24353.0,
-    "8": 24353.0
+    "2": 24525.0,
+    "4": 24525.0,
+    "8": 24525.0
   },
+  "upper_bound_by_duration": null,
+  "mw_share": 0.4443,
   "status": "agreed",
-  "note": "Snapshot of the live computation on 2026-09-27 (bessible.market.refresh). Served only when the live source fails, and then flagged cached."
+  "note": "Snapshot of the live computation on 2026-09-29 (bessible.market.refresh). Served only when the live source fails, and then flagged cached."
 }
