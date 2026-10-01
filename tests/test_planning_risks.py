@@ -53,7 +53,7 @@ def rural_green_belt_flood_zone_3() -> SiteLandOutput:
 
 
 def with_gaps() -> SiteLandOutput:
-    """(c) The flood and planning.data layers failed: flood, land, built-up area and designations are unknown."""
+    """(c) The flood and planning.data layers failed: flood, land, built-up area and heritage are unknown."""
     location = good_site(flood=None, land=None)
     failed = {"EA: flood zones", "Planning Data: designations on the title"}
     location.sources = [
@@ -97,9 +97,7 @@ def test_data_gaps_say_not_assessed_and_cite_the_gap():
         "outside_green_belt",
         "avoids_best_farmland",
         "within_built_up_area",
-        "clear_of_protected_ecology",  # the designations layer failed too, so none of them is known clear
-        "clear_of_protected_heritage",
-        "clear_of_protected_landscape",
+        "clear_of_protected_heritage",  # planning.data serves heritage; ecology and landscape come from Natural England
     }
     assert not any(r.assessed for r in found)
     assert all(r.text.startswith("Not assessed: ") for r in found)
