@@ -25,7 +25,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/geojson": "^7946.0.16",
     "@types/google.maps": "^3.66.3",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
