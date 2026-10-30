@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
+FROM node:26.13.0-alpine AS base
 
 # Step 1: Dependencies installation
 FROM base AS deps
