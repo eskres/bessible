@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 # Copy uv binary from official image
 COPY --from=ghcr.io/astral-sh/uv:0.6.5 /uv /uvx /bin/
