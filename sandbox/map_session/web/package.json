@@ -10,7 +10,7 @@
   "dependencies": {
     "@temporalio/client": "^1.24.0",
     "leaflet": "^1.9.4",
-    "next": "16.3.5",
+    "next": "16.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-leaflet": "^5.0.0"
